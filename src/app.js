@@ -20,6 +20,7 @@ fs.mkdirSync(uploadDir, { recursive: true });
 
 app.use('/api/users', require('./routes/auth.route'));
 app.use('/api/users', require('./routes/user.route'));
+app.use('/api/projects', require('./routes/project.route'));
 
 // Serve avatar files
 app.use('/api/users/avatars', express.static(uploadDir));
