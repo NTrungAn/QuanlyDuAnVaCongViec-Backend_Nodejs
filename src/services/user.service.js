@@ -1,7 +1,7 @@
-const User = require('../models/User.model');
-const Role = require('../models/Role.model');
-const bcrypt = require('bcrypt');
-const jwtUtil = require('../utils/jwt.util');
+const User = require("../models/User.model");
+const Role = require("../models/Role.model");
+const bcrypt = require("bcrypt");
+const jwtUtil = require("../utils/jwt.util");
 
 const userResponse = (user) => ({
   id: user._id,
@@ -16,14 +16,17 @@ const register = async (data) => {
 
   const exists = await User.findOne({ email });
   if (exists) {
-    throw new Error('Email đã tồn tại');
+    throw new Error("Email đã tồn tại");
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  let userRole = await Role.findOne({ name: 'USER' });
+  let userRole = await Role.findOne({ name: "USER" });
   if (!userRole) {
-    userRole = await Role.create({ name: 'USER', description: 'Default user role' });
+    userRole = await Role.create({
+      name: "USER",
+      description: "Default user role",
+    });
   }
 
   const user = await User.create({
@@ -37,6 +40,7 @@ const register = async (data) => {
   return {
     accessToken: jwtUtil.generateAccessToken(user),
     refreshToken: jwtUtil.generateRefreshToken(user),
+    id: user._id,
     email: user.email,
     fullName: user.fullName,
   };
@@ -45,17 +49,18 @@ const register = async (data) => {
 const login = async ({ email, password }) => {
   const user = await User.findOne({ email });
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) {
-    throw new Error('Invalid credentials');
+    throw new Error("Invalid credentials");
   }
 
   return {
     accessToken: jwtUtil.generateAccessToken(user),
     refreshToken: jwtUtil.generateRefreshToken(user),
+    id: user._id,
     email: user.email,
     fullName: user.fullName,
   };
@@ -63,19 +68,29 @@ const login = async ({ email, password }) => {
 
 const getMe = async (userId) => {
   const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
+  if (!user) throw new Error("User not found");
   return userResponse(user);
 };
 
-const getAllUsers = async () => {
-  const users = await User.find();
+const getAllUsers = async (query = {}) => {
+  const users = await User.find(query);
+  return users.map(userResponse);
+};
+
+const searchUsers = async (searchTerm) => {
+  const users = await User.find({
+    $or: [
+      { fullName: { $regex: searchTerm, $options: "i" } },
+      { email: { $regex: searchTerm, $options: "i" } },
+    ],
+  }).limit(10);
   return users.map(userResponse);
 };
 
 const assignRole = async ({ userId, roleNames }) => {
   const user = await User.findById(userId);
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   const normalizedRoles = roleNames.map((role) => role.toUpperCase());
@@ -85,7 +100,7 @@ const assignRole = async ({ userId, roleNames }) => {
   if (foundRoles.length !== normalizedRoles.length) {
     const foundNames = foundRoles.map((r) => r.name);
     const missing = normalizedRoles.filter((r) => !foundNames.includes(r));
-    throw new Error(`Roles not found: ${missing.join(', ')}`);
+    throw new Error(`Roles not found: ${missing.join(", ")}`);
   }
 
   const previousRoles = user.roles;
@@ -98,14 +113,13 @@ const assignRole = async ({ userId, roleNames }) => {
     fullName: user.fullName,
     previousRoles,
     newRoles: normalizedRoles,
-    message: 'Successfully assigned roles to user',
+    message: "Successfully assigned roles to user",
   };
 };
-
 const updateUser = async (targetUserId, updateData) => {
   const user = await User.findById(targetUserId);
   if (!user) {
-    throw new Error('User not found');
+    throw new Error("User not found");
   }
 
   if (updateData.fullName) user.fullName = updateData.fullName;
@@ -119,19 +133,19 @@ const updateUser = async (targetUserId, updateData) => {
     fullName: user.fullName,
     avatarUrl: user.avatarUrl,
     roles: user.roles,
-    message: 'User updated successfully',
+    message: "User updated successfully",
   };
 };
 
 const deleteUser = async (targetUserId) => {
   const user = await User.findById(targetUserId);
-  if (!user) throw new Error('User not found');
+  if (!user) throw new Error("User not found");
 
-  const isAdmin = user.roles.includes('ADMIN');
+  const isAdmin = user.roles.includes("ADMIN");
   if (isAdmin) {
-    const adminCount = await User.countDocuments({ roles: 'ADMIN' });
+    const adminCount = await User.countDocuments({ roles: "ADMIN" });
     if (adminCount <= 1) {
-      throw new Error('Cannot delete the last ADMIN user');
+      throw new Error("Cannot delete the last ADMIN user");
     }
   }
 
