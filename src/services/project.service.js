@@ -20,7 +20,9 @@ const projectResponse = (project) => ({
   endDate: project.endDate,
   status: project.status,
   owner: userResponse(project.owner),
-  members: Array.isArray(project.members) ? project.members.map(userResponse) : [],
+  members: Array.isArray(project.members)
+    ? project.members.map(userResponse)
+    : [],
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
 });
@@ -97,7 +99,7 @@ const addMember = async (projectId, memberId, ownerId) => {
     throw new Error("Người dùng không tồn tại");
   }
 
-  if (project.members.includes(memberId)) {
+  if (project.members.some((m) => m.toString() === memberId.toString())) {
     throw new Error("Người dùng đã là thành viên của dự án");
   }
 
