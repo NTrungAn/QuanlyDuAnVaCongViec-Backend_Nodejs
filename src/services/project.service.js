@@ -2,6 +2,16 @@ const Project = require("../models/Project.model");
 const User = require("../models/User.model");
 const notificationService = require("./notification.service");
 
+const userResponse = (user) => {
+  if (!user) return null;
+  return {
+    id: user._id || user.id,
+    email: user.email,
+    fullName: user.fullName,
+    avatarUrl: user.avatarUrl || null,
+  };
+};
+
 const projectResponse = (project) => ({
   id: project._id,
   name: project.name,
@@ -9,8 +19,8 @@ const projectResponse = (project) => ({
   startDate: project.startDate,
   endDate: project.endDate,
   status: project.status,
-  owner: project.owner,
-  members: project.members,
+  owner: userResponse(project.owner),
+  members: Array.isArray(project.members) ? project.members.map(userResponse) : [],
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
 });
