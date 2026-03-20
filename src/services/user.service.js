@@ -40,7 +40,7 @@ const register = async (data) => {
   return {
     accessToken: jwtUtil.generateAccessToken(user),
     refreshToken: jwtUtil.generateRefreshToken(user),
-    id: user._id,
+    id: user._id.toString(),
     email: user.email,
     fullName: user.fullName,
   };
@@ -60,7 +60,7 @@ const login = async ({ email, password }) => {
   return {
     accessToken: jwtUtil.generateAccessToken(user),
     refreshToken: jwtUtil.generateRefreshToken(user),
-    id: user._id,
+    id: user._id.toString(),
     email: user.email,
     fullName: user.fullName,
   };
@@ -72,19 +72,26 @@ const getMe = async (userId) => {
   return userResponse(user);
 };
 
-const getAllUsers = async (query = {}) => {
-  const users = await User.find(query);
+const getAllUsers = async () => {
+  const users = await User.find();
   return users.map(userResponse);
 };
 
 const searchUsers = async (searchTerm) => {
+  const safeSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const users = await User.find({
     $or: [
-      { fullName: { $regex: searchTerm, $options: "i" } },
-      { email: { $regex: searchTerm, $options: "i" } },
+      { fullName: { $regex: safeSearchTerm, $options: "i" } },
+      { email: { $regex: safeSearchTerm, $options: "i" } },
     ],
   }).limit(10);
-  return users.map(userResponse);
+
+  return users.map((user) => ({
+    id: user._id.toString(),
+    fullName: user.fullName,
+    email: user.email,
+    avatarUrl: user.avatarUrl,
+  }));
 };
 
 const assignRole = async ({ userId, roleNames }) => {
@@ -116,6 +123,7 @@ const assignRole = async ({ userId, roleNames }) => {
     message: "Successfully assigned roles to user",
   };
 };
+
 const updateUser = async (targetUserId, updateData) => {
   const user = await User.findById(targetUserId);
   if (!user) {
@@ -157,6 +165,7 @@ module.exports = {
   login,
   getMe,
   getAllUsers,
+  searchUsers,
   assignRole,
   updateUser,
   deleteUser,
