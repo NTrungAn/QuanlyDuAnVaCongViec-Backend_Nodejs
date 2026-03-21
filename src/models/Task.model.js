@@ -21,6 +21,14 @@ const taskSchema = new mongoose.Schema(
       enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
       default: "MEDIUM",
     },
+    storyPoint: {
+      type: Number,
+      default: 0,
+    },
+    order: {
+      type: Number,
+      default: 0,
+    },
     dueDate: {
       type: Date,
     },

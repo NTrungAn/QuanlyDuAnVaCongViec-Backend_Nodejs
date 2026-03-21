@@ -190,10 +190,107 @@ const linkTaskToEpic = async (projectId, epicId, taskId, userId) => {
   };
 };
 
+const updateEpic = async (projectId, epicId, updateData, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const epic = await Epic.findById(epicId);
+  if (!epic) {
+    throw new Error('Epic không tồn tại');
+  }
+
+  if (epic.project.toString() !== projectId.toString()) {
+    throw new Error('Epic không thuộc dự án này');
+  }
+
+  Object.assign(epic, updateData);
+  await epic.save();
+
+  const updatedEpic = await Epic.findById(epic._id).populate(
+    'tasks',
+    'title status priority',
+  );
+
+  return epicResponse(updatedEpic);
+};
+
+const deleteEpic = async (projectId, epicId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const epic = await Epic.findById(epicId);
+  if (!epic) {
+    throw new Error('Epic không tồn tại');
+  }
+
+  if (epic.project.toString() !== projectId.toString()) {
+    throw new Error('Epic không thuộc dự án này');
+  }
+
+  // Detach all tasks from this epic
+  await Task.updateMany({ epic: epic._id }, { $set: { epic: null } });
+
+  await Epic.findByIdAndDelete(epicId);
+
+  return { message: 'Xóa epic thành công' };
+};
+
+const updateSprint = async (projectId, sprintId, updateData, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const sprint = await Sprint.findById(sprintId);
+  if (!sprint) {
+    throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.project.toString() !== projectId.toString()) {
+    throw new Error('Sprint không thuộc dự án này');
+  }
+
+  const oldStatus = sprint.status;
+  Object.assign(sprint, updateData);
+  await sprint.save();
+
+  if (oldStatus !== 'COMPLETED' && updateData.status === 'COMPLETED') {
+    await Task.updateMany(
+      { sprint: sprint._id, status: { $ne: 'DONE' } },
+      { $set: { sprint: null } }
+    );
+  }
+
+  const updatedSprint = await Sprint.findById(sprint._id).populate(
+    'tasks',
+    'title status priority',
+  );
+
+  return sprintResponse(updatedSprint);
+};
+
+const deleteSprint = async (projectId, sprintId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const sprint = await Sprint.findById(sprintId);
+  if (!sprint) {
+    throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.project.toString() !== projectId.toString()) {
+    throw new Error('Sprint không thuộc dự án này');
+  }
+
+  await Task.updateMany({ sprint: sprint._id }, { $set: { sprint: null } });
+
+  await Sprint.findByIdAndDelete(sprintId);
+
+  return { message: 'Xóa sprint thành công' };
+};
+
 module.exports = {
   createSprint,
   getSprintsByProject,
   addTaskToSprint,
   createEpic,
   linkTaskToEpic,
+  updateEpic,
+  deleteEpic,
+  updateSprint,
+  deleteSprint,
 };

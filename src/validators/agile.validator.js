@@ -31,6 +31,28 @@ const createEpicSchema = Joi.object({
   status: Joi.string().valid('PLANNING', 'IN_PROGRESS', 'DONE').default('PLANNING'),
 });
 
+const updateEpicSchema = Joi.object({
+  name: Joi.string().min(3).max(120).trim().messages({
+    'string.empty': 'Tên epic không được để trống',
+    'string.min': 'Tên epic phải có ít nhất {#limit} ký tự',
+  }),
+  description: Joi.string().max(1000).allow('', null).trim(),
+  status: Joi.string().valid('PLANNING', 'IN_PROGRESS', 'DONE'),
+});
+
+const updateSprintSchema = Joi.object({
+  name: Joi.string().min(3).max(100).trim().messages({
+    'string.empty': 'Tên sprint không được để trống',
+    'string.min': 'Tên sprint phải có ít nhất {#limit} ký tự',
+  }),
+  goal: Joi.string().max(500).allow('', null).trim(),
+  startDate: Joi.date().iso(),
+  endDate: Joi.date().iso().messages({
+    'date.min': 'Ngày kết thúc sprint phải sau hoặc bằng ngày bắt đầu',
+  }),
+  status: Joi.string().valid('PLANNED', 'ACTIVE', 'COMPLETED'),
+});
+
 const linkTaskSchema = Joi.object({
   taskId: objectId.required().messages({
     'any.required': 'taskId là bắt buộc',
@@ -41,4 +63,6 @@ module.exports = {
   createSprintSchema,
   createEpicSchema,
   linkTaskSchema,
+  updateEpicSchema,
+  updateSprintSchema,
 };

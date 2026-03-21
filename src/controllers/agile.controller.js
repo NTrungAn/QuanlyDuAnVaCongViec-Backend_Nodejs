@@ -66,10 +66,68 @@ const linkTaskToEpic = async (req, res) => {
   }
 };
 
+const updateEpic = async (req, res) => {
+  try {
+    const epic = await agileService.updateEpic(
+      req.params.projectId,
+      req.params.epicId,
+      req.body,
+      req.user._id,
+    );
+    return res.status(200).json(epic);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteEpic = async (req, res) => {
+  try {
+    const result = await agileService.deleteEpic(
+      req.params.projectId,
+      req.params.epicId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const updateSprint = async (req, res) => {
+  try {
+    const sprint = await agileService.updateSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.body,
+      req.user._id,
+    );
+    return res.status(200).json(sprint);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteSprint = async (req, res) => {
+  try {
+    const result = await agileService.deleteSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createSprint,
   getSprintsByProject,
   addTaskToSprint,
   createEpic,
   linkTaskToEpic,
+  updateEpic,
+  deleteEpic,
+  updateSprint,
+  deleteSprint,
 };
