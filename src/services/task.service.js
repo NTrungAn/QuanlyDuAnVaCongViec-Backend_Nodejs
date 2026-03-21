@@ -1,6 +1,7 @@
 const Task = require("../models/Task.model");
 const Project = require("../models/Project.model");
 const notificationService = require("./notification.service");
+const TaskActivity = require("../models/TaskActivity.model");
 
 const taskResponse = (task) => ({
   id: task._id,
@@ -14,6 +15,11 @@ const taskResponse = (task) => ({
   creator: task.creator,
   sprint: task.sprint,
   epic: task.epic,
+  startDate: task.startDate,
+  progress: task.progress,
+  isDeleted: task.isDeleted,
+  isArchived: task.isArchived,
+  attachments: task.attachments,
   createdAt: task.createdAt,
   updatedAt: task.updatedAt,
 });
@@ -32,6 +38,13 @@ const createTask = async (taskData, userId) => {
   const task = await Task.create({
     ...taskData,
     creator: userId,
+  });
+
+  await TaskActivity.create({
+    task: task._id,
+    user: userId,
+    action: "CREATED",
+    details: "Tạo mới công việc",
   });
 
   // Nếu có người được giao việc, gửi thông báo
@@ -58,7 +71,7 @@ const getTasksByProject = async (projectId, userId) => {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId })
+  const tasks = await Task.find({ project: projectId, isDeleted: false })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
@@ -106,8 +119,23 @@ const updateTask = async (taskId, updateData, userId) => {
 
   const previousAssignee = task.assignee ? task.assignee.toString() : null;
 
+  const oldStatus = task.status;
   Object.assign(task, updateData);
   await task.save();
+
+  let details = "Cập nhật thuộc tính công việc";
+  if (updateData.status && updateData.status !== oldStatus) {
+    details = `Chuyển trạng thái từ ${oldStatus} sang ${updateData.status}`;
+  } else if (updateData.progress !== undefined) {
+    details = `Cập nhật tiến độ: ${updateData.progress}%`;
+  }
+
+  await TaskActivity.create({
+    task: task._id,
+    user: userId,
+    action: "UPDATED",
+    details,
+  });
 
   // Nếu người được giao thay đổi, gửi thông báo cho người mới
   const newAssignee = task.assignee ? task.assignee.toString() : null;
@@ -143,8 +171,17 @@ const deleteTask = async (taskId, userId) => {
     throw new Error("Bạn không có quyền xóa công việc này");
   }
 
-  await Task.findByIdAndDelete(taskId);
-  return { message: "Xóa công việc thành công" };
+  task.isDeleted = true;
+  await task.save();
+
+  await TaskActivity.create({
+    task: task._id,
+    user: userId,
+    action: "DELETED",
+    details: "Đưa công việc vào thùng rác",
+  });
+
+  return { message: "Đưa công việc vào thùng rác thành công" };
 };
 
 const getBacklogByProject = async (projectId, userId) => {
@@ -157,13 +194,71 @@ const getBacklogByProject = async (projectId, userId) => {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId, sprint: null })
+  const tasks = await Task.find({ project: projectId, sprint: null, isDeleted: false })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("epic", "name status")
     .sort({ order: 1, createdAt: 1 });
 
   return tasks.map(taskResponse);
+};
+
+const restoreTask = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+
+  const project = task.project;
+  const isOwner = project.owner.toString() === userId.toString();
+  const isCreator = task.creator.toString() === userId.toString();
+  if (!isOwner && !isCreator) throw new Error("Bạn không có quyền khôi phục công việc này");
+
+  task.isDeleted = false;
+  await task.save();
+
+  await TaskActivity.create({
+    task: task._id,
+    user: userId,
+    action: "RESTORED",
+    details: "Khôi phục công việc từ thùng rác",
+  });
+
+  return { message: "Khôi phục công việc thành công" };
+};
+
+const archiveTask = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+
+  const project = task.project;
+  const isOwner = project.owner.toString() === userId.toString();
+  if (!isOwner) throw new Error("Chỉ chủ dự án mới có quyền lưu trữ công việc");
+
+  task.isArchived = true;
+  await task.save();
+
+  await TaskActivity.create({
+    task: task._id,
+    user: userId,
+    action: "ARCHIVED",
+    details: "Lưu trữ công việc",
+  });
+
+  return { message: "Lưu trữ công việc thành công" };
+};
+
+const getTaskActivities = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+  
+  if (!task.project.members.includes(userId) && task.project.owner.toString() !== userId.toString()) {
+    throw new Error("Bạn không có quyền xem thông tin này");
+  }
+
+  const activities = await TaskActivity.find({ task: taskId })
+    .populate("user", "fullName email avatarUrl")
+    .sort({ createdAt: -1 });
+  
+  return activities;
 };
 
 module.exports = {
@@ -173,4 +268,7 @@ module.exports = {
   updateTask,
   deleteTask,
   getBacklogByProject,
+  restoreTask,
+  archiveTask,
+  getTaskActivities,
 };

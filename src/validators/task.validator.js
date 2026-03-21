@@ -25,6 +25,13 @@ const createTaskSchema = Joi.object({
   dueDate: Joi.date()
     .iso()
     .allow(null),
+  startDate: Joi.date()
+    .iso()
+    .allow(null),
+  progress: Joi.number()
+    .min(0)
+    .max(100)
+    .default(0),
   project: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
     .required()
@@ -56,6 +63,12 @@ const updateTaskSchema = Joi.object({
   dueDate: Joi.date()
     .iso()
     .allow(null),
+  startDate: Joi.date()
+    .iso()
+    .allow(null),
+  progress: Joi.number()
+    .min(0)
+    .max(100),
   assignee: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
     .allow(null)

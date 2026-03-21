@@ -59,6 +59,36 @@ const getBacklogTasks = async (req, res) => {
   }
 };
 
+const restoreTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const result = await taskService.restoreTask(taskId, req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const archiveTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const result = await taskService.archiveTask(taskId, req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const getTaskActivities = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const activities = await taskService.getTaskActivities(taskId, req.user._id);
+    return res.status(200).json(activities);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask,
   getTasksByProject,
@@ -66,4 +96,7 @@ module.exports = {
   updateTask,
   deleteTask,
   getBacklogTasks,
+  restoreTask,
+  archiveTask,
+  getTaskActivities,
 };
