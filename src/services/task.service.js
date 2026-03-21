@@ -3,6 +3,14 @@ const Project = require("../models/Project.model");
 const notificationService = require("./notification.service");
 const TaskActivity = require("../models/TaskActivity.model");
 
+const priorityWeight = {
+  "URGENT": 4,
+  "HIGH": 3,
+  "MEDIUM": 2,
+  "LOW": 1,
+  "LOWEST": 0
+};
+
 const taskResponse = (task) => ({
   id: task._id,
   title: task.title,
@@ -15,6 +23,7 @@ const taskResponse = (task) => ({
   creator: task.creator,
   sprint: task.sprint,
   epic: task.epic,
+  taskType: task.taskType,
   startDate: task.startDate,
   progress: task.progress,
   isDeleted: task.isDeleted,
@@ -61,7 +70,7 @@ const createTask = async (taskData, userId) => {
   return taskResponse(task);
 };
 
-const getTasksByProject = async (projectId, userId) => {
+const getTasksByProject = async (projectId, userId, query = {}) => {
   const project = await Project.findById(projectId);
   if (!project) {
     throw new Error("Dự án không tồn tại");
@@ -71,11 +80,17 @@ const getTasksByProject = async (projectId, userId) => {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId, isDeleted: false })
+  let tasks = await Task.find({ project: projectId, isDeleted: false })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
-    .populate("epic", "name status");
+    .populate("epic", "name status")
+    .populate("taskType", "name icon color");
+
+  if (query.sortBy === 'priority') {
+    tasks.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
+  }
+
   return tasks.map(taskResponse);
 };
 
@@ -85,7 +100,8 @@ const getTaskById = async (taskId, userId) => {
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
-    .populate("epic", "name status");
+    .populate("epic", "name status")
+    .populate("taskType", "name icon color");
 
   if (!task) {
     throw new Error("Công việc không tồn tại");
@@ -184,7 +200,7 @@ const deleteTask = async (taskId, userId) => {
   return { message: "Đưa công việc vào thùng rác thành công" };
 };
 
-const getBacklogByProject = async (projectId, userId) => {
+const getBacklogByProject = async (projectId, userId, query = {}) => {
   const project = await Project.findById(projectId);
   if (!project) {
     throw new Error("Dự án không tồn tại");
@@ -194,11 +210,16 @@ const getBacklogByProject = async (projectId, userId) => {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId, sprint: null, isDeleted: false })
+  let tasks = await Task.find({ project: projectId, sprint: null, isDeleted: false })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("epic", "name status")
+    .populate("taskType", "name icon color")
     .sort({ order: 1, createdAt: 1 });
+
+  if (query.sortBy === 'priority') {
+    tasks.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
+  }
 
   return tasks.map(taskResponse);
 };

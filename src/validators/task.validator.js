@@ -44,6 +44,12 @@ const createTaskSchema = Joi.object({
     .allow(null)
     .messages({
       'string.pattern.base': 'ID người thực hiện không hợp lệ'
+    }),
+  taskType: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null)
+    .messages({
+      'string.pattern.base': 'ID loại công việc không hợp lệ'
     })
 });
 
@@ -70,6 +76,9 @@ const updateTaskSchema = Joi.object({
     .min(0)
     .max(100),
   assignee: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null),
+  taskType: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
     .allow(null)
 });
