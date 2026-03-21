@@ -12,7 +12,7 @@ const createTask = async (req, res) => {
 const getTasksByProject = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const tasks = await taskService.getTasksByProject(projectId, req.user._id);
+    const tasks = await taskService.getTasksByProject(projectId, req.user._id, req.query);
     return res.status(200).json(tasks);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -52,7 +52,7 @@ const deleteTask = async (req, res) => {
 const getBacklogTasks = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const tasks = await taskService.getBacklogByProject(projectId, req.user._id);
+    const tasks = await taskService.getBacklogByProject(projectId, req.user._id, req.query);
     return res.status(200).json(tasks);
   } catch (error) {
     return res.status(400).json({ message: error.message });
