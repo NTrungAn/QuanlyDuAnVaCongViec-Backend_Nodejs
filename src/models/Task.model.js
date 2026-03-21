@@ -61,6 +61,14 @@ const taskSchema = new mongoose.Schema(
       ref: "Epic",
       default: null,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

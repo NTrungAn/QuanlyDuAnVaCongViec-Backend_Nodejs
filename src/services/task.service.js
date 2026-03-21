@@ -47,6 +47,16 @@ const createTask = async (taskData, userId) => {
     creator: userId,
   });
 
+  if (task.sprint) {
+    const Sprint = require('../models/Sprint.model');
+    await Sprint.findByIdAndUpdate(task.sprint, { $addToSet: { tasks: task._id } });
+  }
+
+  if (task.epic) {
+    const Epic = require('../models/Epic.model');
+    await Epic.findByIdAndUpdate(task.epic, { $addToSet: { tasks: task._id } });
+  }
+
   // Nếu có người được giao việc, gửi thông báo
   if (task.assignee && task.assignee.toString() !== userId.toString()) {
     await notificationService.createNotification({
@@ -72,7 +82,7 @@ const getTasksByProject = async (projectId, userId, query = {}) => {
   }
 
 
-  let tasks = await Task.find({ project: projectId, isDeleted: false })
+  let tasks = await Task.find({ project: projectId, isDeleted: { $ne: true } })
 
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
@@ -127,9 +137,45 @@ const updateTask = async (taskId, updateData, userId) => {
   }
 
   const previousAssignee = task.assignee ? task.assignee.toString() : null;
+  const previousSprint = task.sprint ? task.sprint.toString() : null;
+  const previousEpic = task.epic ? task.epic.toString() : null;
 
   Object.assign(task, updateData);
+  if (updateData.sprint === null) {
+      task.sprint = null;
+  }
+  if (updateData.epic === null) {
+      task.epic = null;
+  }
   await task.save();
+
+  // Handle sprint sync
+  if (updateData.sprint !== undefined) {
+    const newSprint = updateData.sprint ? updateData.sprint.toString() : null;
+    if (newSprint !== previousSprint) {
+      const Sprint = require('../models/Sprint.model');
+      if (previousSprint) {
+        await Sprint.findByIdAndUpdate(previousSprint, { $pull: { tasks: task._id } });
+      }
+      if (newSprint) {
+        await Sprint.findByIdAndUpdate(newSprint, { $addToSet: { tasks: task._id } });
+      }
+    }
+  }
+
+  // Handle epic sync
+  if (updateData.epic !== undefined) {
+    const newEpic = updateData.epic ? updateData.epic.toString() : null;
+    if (newEpic !== previousEpic) {
+      const Epic = require('../models/Epic.model');
+      if (previousEpic) {
+        await Epic.findByIdAndUpdate(previousEpic, { $pull: { tasks: task._id } });
+      }
+      if (newEpic) {
+        await Epic.findByIdAndUpdate(newEpic, { $addToSet: { tasks: task._id } });
+      }
+    }
+  }
 
   // Nếu người được giao thay đổi, gửi thông báo cho người mới
   const newAssignee = task.assignee ? task.assignee.toString() : null;
