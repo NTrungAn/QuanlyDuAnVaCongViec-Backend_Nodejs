@@ -34,31 +34,9 @@ const taskSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-    startDate: {
-      type: Date,
-    },
     dueDate: {
       type: Date,
     },
-    progress: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 100,
-    },
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
-    isArchived: {
-      type: Boolean,
-      default: false,
-    },
-    attachments: [
-      {
-        type: String,
-      }
-    ],
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",
