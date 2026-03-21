@@ -12,6 +12,8 @@ const taskResponse = (task) => ({
   project: task.project,
   assignee: task.assignee,
   creator: task.creator,
+  sprint: task.sprint,
+  epic: task.epic,
   createdAt: task.createdAt,
   updatedAt: task.updatedAt,
 });
@@ -58,7 +60,9 @@ const getTasksByProject = async (projectId, userId) => {
 
   const tasks = await Task.find({ project: projectId })
     .populate("assignee", "fullName email avatarUrl")
-    .populate("creator", "fullName email avatarUrl");
+    .populate("creator", "fullName email avatarUrl")
+    .populate("sprint", "name status startDate endDate")
+    .populate("epic", "name status");
   return tasks.map(taskResponse);
 };
 
@@ -66,7 +70,9 @@ const getTaskById = async (taskId, userId) => {
   const task = await Task.findById(taskId)
     .populate("project")
     .populate("assignee", "fullName email avatarUrl")
-    .populate("creator", "fullName email avatarUrl");
+    .populate("creator", "fullName email avatarUrl")
+    .populate("sprint", "name status startDate endDate")
+    .populate("epic", "name status");
 
   if (!task) {
     throw new Error("Công việc không tồn tại");

@@ -25,6 +25,7 @@ app.use('/api/tasks', require('./routes/task.route'));
 app.use('/api/comments', require('./routes/comment.route'));
 app.use('/api/stats', require('./routes/stat.route'));
 app.use('/api/notifications', require('./routes/notification.route'));
+app.use('/api/epics', require('./routes/epic.routes'));
 
 // Serve avatar files
 app.use('/api/users/avatars', express.static(uploadDir));

@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const jwtUtil = require("../utils/jwt.util");
 
 const userResponse = (user) => ({
-  id: user._id.toString(),
+  id: user._id,
   email: user.email,
   fullName: user.fullName,
   avatarUrl: user.avatarUrl || null,

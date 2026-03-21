@@ -38,6 +38,16 @@ const taskSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    sprint: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sprint",
+      default: null,
+    },
+    epic: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Epic",
+      default: null,
+    },
   },
   {
     timestamps: true,
