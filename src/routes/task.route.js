@@ -10,6 +10,9 @@ router.post('/', validate(createTaskSchema), taskController.createTask);
 router.get('/project/:projectId', taskController.getTasksByProject);
 router.get('/project/:projectId/backlog', taskController.getBacklogTasks);
 router.get('/:taskId', taskController.getTaskById);
+router.get('/:taskId/activities', taskController.getTaskActivities);
+router.put('/:taskId/restore', taskController.restoreTask);
+router.put('/:taskId/archive', taskController.archiveTask);
 router.put('/:taskId', validate(updateTaskSchema), taskController.updateTask);
 router.delete('/:taskId', taskController.deleteTask);
 
