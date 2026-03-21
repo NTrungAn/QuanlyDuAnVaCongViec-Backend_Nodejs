@@ -147,10 +147,30 @@ const deleteTask = async (taskId, userId) => {
   return { message: "Xóa công việc thành công" };
 };
 
+const getBacklogByProject = async (projectId, userId) => {
+  const project = await Project.findById(projectId);
+  if (!project) {
+    throw new Error("Dự án không tồn tại");
+  }
+
+  if (!project.members.includes(userId)) {
+    throw new Error("Bạn không có quyền xem công việc trong dự án này");
+  }
+
+  const tasks = await Task.find({ project: projectId, sprint: null })
+    .populate("assignee", "fullName email avatarUrl")
+    .populate("creator", "fullName email avatarUrl")
+    .populate("epic", "name status")
+    .sort({ order: 1, createdAt: 1 });
+
+  return tasks.map(taskResponse);
+};
+
 module.exports = {
   createTask,
   getTasksByProject,
   getTaskById,
   updateTask,
   deleteTask,
+  getBacklogByProject,
 };
