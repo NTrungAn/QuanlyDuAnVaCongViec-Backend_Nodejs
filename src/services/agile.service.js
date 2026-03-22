@@ -283,6 +283,106 @@ const deleteSprint = async (projectId, sprintId, userId) => {
   return { message: 'Xóa sprint thành công' };
 };
 
+const getBacklogData = async (projectId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const backlogTasks = await Task.find({
+    project: projectId,
+    sprint: null,
+    isDeleted: false,
+    isArchived: false,
+  })
+    .sort({ order: 1, createdAt: -1 })
+    .select('title status priority storyPoint order assignee createdAt');
+
+  const sprints = await Sprint.find({ project: projectId })
+    .sort({ startDate: 1, createdAt: 1 })
+    .lean();
+
+  const sprintsWithTasks = await Promise.all(
+    sprints.map(async (sprint) => {
+      const tasks = await Task.find({
+        sprint: sprint._id,
+        isDeleted: false,
+        isArchived: false,
+      })
+        .sort({ order: 1, createdAt: -1 })
+        .select('title status priority storyPoint order assignee createdAt');
+
+      return {
+        ...sprint,
+        id: sprint._id,
+        tasks,
+      };
+    }),
+  );
+
+  return {
+    backlogTasks,
+    sprints: sprintsWithTasks,
+  };
+};
+
+const updateTaskOrder = async (projectId, updates, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    throw new Error('Dữ liệu cập nhật không hợp lệ');
+  }
+
+  const bulkOps = updates.map((update) => ({
+    updateOne: {
+      filter: { _id: update.taskId, project: projectId },
+      update: {
+        $set: {
+          order: update.order,
+          sprint: update.sprintId || null,
+        },
+      },
+    },
+  }));
+
+  await Task.bulkWrite(bulkOps);
+
+  return { message: 'Cập nhật thứ tự task thành công' };
+};
+
+const startSprint = async (projectId, sprintId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const sprint = await Sprint.findById(sprintId);
+  if (!sprint) {
+    throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.project.toString() !== projectId.toString()) {
+    throw new Error('Sprint không thuộc dự án này');
+  }
+
+  if (sprint.status !== 'PLANNED') {
+    throw new Error(
+      'Chỉ có thể khởi động Sprint đang ở trạng thái Cần thực hiện (PLANNED)',
+    );
+  }
+
+  const activeSprint = await Sprint.findOne({
+    project: projectId,
+    status: 'ACTIVE',
+  });
+
+  if (activeSprint) {
+    throw new Error(
+      'Dự án đã có một Sprint đang chạy (ACTIVE). Vui lòng hoàn thành Sprint đó trước.',
+    );
+  }
+
+  sprint.status = 'ACTIVE';
+  sprint.startDate = new Date();
+  await sprint.save();
+
+  return sprintResponse(sprint);
+};
+
 module.exports = {
   createSprint,
   getSprintsByProject,
@@ -293,4 +393,7 @@ module.exports = {
   deleteEpic,
   updateSprint,
   deleteSprint,
+  getBacklogData,
+  updateTaskOrder,
+  startSprint,
 };
