@@ -11,7 +11,7 @@ const createProject = async (req, res) => {
 
 const getAllProjects = async (req, res) => {
   try {
-    const projects = await projectService.getAllProjects();
+    const projects = await projectService.getAllProjects(req.user._id);
     return res.status(200).json(projects);
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -20,7 +20,7 @@ const getAllProjects = async (req, res) => {
 
 const getProjectById = async (req, res) => {
   try {
-    const project = await projectService.getProjectById(req.params.projectId);
+    const project = await projectService.getProjectById(req.params.projectId, req.user._id);
     return res.status(200).json(project);
   } catch (error) {
     return res.status(404).json({ message: error.message });

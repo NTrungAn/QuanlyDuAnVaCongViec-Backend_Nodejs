@@ -11,9 +11,34 @@ const notificationResponse = (notification) => ({
   createdAt: notification.createdAt,
 });
 
+const emitNotification = (recipientId, payload) => {
+  try {
+    const { getIO } = require('../socket');
+    const io = getIO();
+    io.to(`user:${recipientId}`).emit('notification:new', payload);
+    io.to(`user:${recipientId}`).emit('notification:unread-count');
+  } catch (error) {
+    // socket is optional during tests/startup
+  }
+};
+
+const emitUnreadCount = (recipientId) => {
+  try {
+    const { getIO } = require('../socket');
+    const io = getIO();
+    io.to(`user:${recipientId}`).emit('notification:unread-count');
+  } catch (error) {
+    // socket is optional during tests/startup
+  }
+};
+
 const createNotification = async (data) => {
   const notification = await Notification.create(data);
-  return notificationResponse(notification);
+  const populated = await Notification.findById(notification._id)
+    .populate('sender', 'fullName avatarUrl');
+  const result = notificationResponse(populated || notification);
+  emitNotification(data.recipient, result);
+  return result;
 };
 
 const getUserNotifications = async (userId) => {
@@ -25,17 +50,20 @@ const getUserNotifications = async (userId) => {
 };
 
 const markAsRead = async (notificationId, userId) => {
-  const notification = await Notification.findOne({ _id: notificationId, recipient: userId });
+  const notification = await Notification.findOne({ _id: notificationId, recipient: userId })
+    .populate('sender', 'fullName avatarUrl');
   if (!notification) {
     throw new Error('Thông báo không tồn tại');
   }
   notification.isRead = true;
   await notification.save();
+  emitUnreadCount(userId);
   return notificationResponse(notification);
 };
 
 const markAllAsRead = async (userId) => {
   await Notification.updateMany({ recipient: userId, isRead: false }, { isRead: true });
+  emitUnreadCount(userId);
   return { message: 'Đã đánh dấu tất cả là đã đọc' };
 };
 
@@ -50,4 +78,5 @@ module.exports = {
   markAsRead,
   markAllAsRead,
   getUnreadCount,
+  emitUnreadCount,
 };

@@ -13,7 +13,16 @@ const notificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["TASK_ASSIGNED", "COMMENT_ADDED", "PROJECT_INVITATION", "TASK_UPDATED", "SYSTEM"],
+      enum: [
+        "TASK_ASSIGNED",
+        "TASK_CREATED",
+        "TASK_UPDATED",
+        "COMMENT_ADDED",
+        "PROJECT_INVITATION",
+        "SPRINT_CREATED",
+        "EPIC_CREATED",
+        "SYSTEM",
+      ],
       required: true,
     },
     message: {
@@ -34,4 +43,4 @@ const notificationSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Notification", notificationSchema);
+module.exports = mongoose.models.Notification || mongoose.model("Notification", notificationSchema);

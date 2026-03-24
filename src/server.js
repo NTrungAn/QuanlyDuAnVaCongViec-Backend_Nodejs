@@ -1,6 +1,8 @@
 require('dotenv').config();
+const http = require('http');
 const app = require('./app');
 const connectDB = require('./config/db');
+const { initSocket } = require('./socket');
 const User = require('./models/User.model');
 const Role = require('./models/Role.model');
 const bcrypt = require('bcrypt');
@@ -40,7 +42,9 @@ async function seedData() {
   try {
     await connectDB();
     await seedData();
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    const server = http.createServer(app);
+    initSocket(server);
+    server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
   } catch (error) {
     console.error('Server failed to start:', error.message);
     process.exit(1);

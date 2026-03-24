@@ -16,23 +16,10 @@ const taskSchema = new mongoose.Schema(
       enum: ["TODO", "IN_PROGRESS", "REVIEW", "DONE"],
       default: "TODO",
     },
-    taskType: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "TaskType",
-      default: null,
-    },
     priority: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
       default: "MEDIUM",
-    },
-    storyPoint: {
-      type: Number,
-      default: 0,
-    },
-    order: {
-      type: Number,
-      default: 0,
     },
     dueDate: {
       type: Date,
@@ -60,14 +47,6 @@ const taskSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Epic",
       default: null,
-    },
-    isDeleted: {
-      type: Boolean,
-      default: false,
-    },
-    isArchived: {
-      type: Boolean,
-      default: false,
     },
   },
   {

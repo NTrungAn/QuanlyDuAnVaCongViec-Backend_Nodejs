@@ -1,5 +1,11 @@
 const Joi = require('joi');
 
+const objectId = Joi.string()
+  .regex(/^[0-9a-fA-F]{24}$/)
+  .messages({
+    'string.pattern.base': 'ID không hợp lệ'
+  });
+
 const createTaskSchema = Joi.object({
   title: Joi.string()
     .min(3)
@@ -17,39 +23,27 @@ const createTaskSchema = Joi.object({
     .allow('', null)
     .trim(),
   status: Joi.string()
-    .valid("TODO", "IN_PROGRESS", "REVIEW", "DONE")
-    .default("TODO"),
+    .valid('TODO', 'IN_PROGRESS', 'REVIEW', 'DONE')
+    .default('TODO'),
   priority: Joi.string()
-    .valid("LOW", "MEDIUM", "HIGH", "URGENT")
-    .default("MEDIUM"),
+    .valid('LOW', 'MEDIUM', 'HIGH', 'URGENT')
+    .default('MEDIUM'),
   dueDate: Joi.date()
     .iso()
     .allow(null),
-  project: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .required()
-    .messages({
-      'string.pattern.base': 'ID dự án không hợp lệ',
-      'any.required': 'Dự án là bắt buộc'
-    }),
-  assignee: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'ID người thực hiện không hợp lệ'
-    }),
-  taskType: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'ID loại công việc không hợp lệ'
-    }),
-  sprint: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  epic: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, "")
+  project: objectId.required().messages({
+    'string.pattern.base': 'ID dự án không hợp lệ',
+    'any.required': 'Dự án là bắt buộc'
+  }),
+  assignee: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID người thực hiện không hợp lệ'
+  }),
+  sprint: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID sprint không hợp lệ'
+  }),
+  epic: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID epic không hợp lệ'
+  })
 });
 
 const updateTaskSchema = Joi.object({
@@ -62,24 +56,21 @@ const updateTaskSchema = Joi.object({
     .allow('', null)
     .trim(),
   status: Joi.string()
-    .valid("TODO", "IN_PROGRESS", "REVIEW", "DONE"),
+    .valid('TODO', 'IN_PROGRESS', 'REVIEW', 'DONE'),
   priority: Joi.string()
-    .valid("LOW", "MEDIUM", "HIGH", "URGENT"),
+    .valid('LOW', 'MEDIUM', 'HIGH', 'URGENT'),
   dueDate: Joi.date()
     .iso()
     .allow(null),
-  assignee: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null),
-  taskType: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null),
-  sprint: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  epic: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, "")
+  assignee: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID người thực hiện không hợp lệ'
+  }),
+  sprint: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID sprint không hợp lệ'
+  }),
+  epic: objectId.allow(null, '').messages({
+    'string.pattern.base': 'ID epic không hợp lệ'
+  })
 });
 
 module.exports = {

@@ -39,4 +39,4 @@ const epicSchema = new mongoose.Schema(
   },
 );
 
-module.exports = mongoose.models.Epic || mongoose.model('Epic', epicSchema);
+module.exports = mongoose.model('Epic', epicSchema);
