@@ -61,6 +61,12 @@ const taskSchema = new mongoose.Schema(
       ref: "Epic",
       default: null,
     },
+    labels: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Label",
+      },
+    ],
     isDeleted: {
       type: Boolean,
       default: false,
@@ -68,6 +74,10 @@ const taskSchema = new mongoose.Schema(
     isArchived: {
       type: Boolean,
       default: false,
+    },
+    commentsCount: {
+      type: Number,
+      default: 0,
     },
   },
   {
