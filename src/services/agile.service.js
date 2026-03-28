@@ -35,6 +35,7 @@ const sprintResponse = (sprint) => ({
         title: task.title,
         status: task.status,
         priority: task.priority,
+        taskType: task.taskType,
       }))
     : [],
   createdAt: sprint.createdAt,
@@ -54,6 +55,7 @@ const epicResponse = (epic) => ({
         title: task.title,
         status: task.status,
         priority: task.priority,
+        taskType: task.taskType,
       }))
     : [],
   createdAt: epic.createdAt,
@@ -76,7 +78,11 @@ const getSprintsByProject = async (projectId, userId) => {
   await ensureProjectAccess(projectId, userId);
 
   const sprints = await Sprint.find({ project: projectId })
-    .populate('tasks', 'title status priority')
+    .populate({
+      path: 'tasks',
+      select: 'title status priority taskType',
+      populate: { path: 'taskType' },
+    })
     .sort({ startDate: 1, createdAt: 1 });
 
   return sprints.map(sprintResponse);
@@ -92,6 +98,10 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
 
   if (!sprint) {
     throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.status === 'COMPLETED') {
+    throw new Error('Không thể thêm công việc vào Sprint đã hoàn thành');
   }
 
   if (!task) {
@@ -119,10 +129,11 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
     $addToSet: { tasks: task._id },
   });
 
-  const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedSprint = await Sprint.findById(sprint._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return {
     message: 'Thêm task vào sprint thành công',
@@ -179,10 +190,11 @@ const linkTaskToEpic = async (projectId, epicId, taskId, userId) => {
     $addToSet: { tasks: task._id },
   });
 
-  const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedEpic = await Epic.findById(epic._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return {
     message: 'Gắn task vào epic thành công',
@@ -205,10 +217,11 @@ const updateEpic = async (projectId, epicId, updateData, userId) => {
   Object.assign(epic, updateData);
   await epic.save();
 
-  const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedEpic = await Epic.findById(epic._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return epicResponse(updatedEpic);
 };
@@ -256,10 +269,11 @@ const updateSprint = async (projectId, sprintId, updateData, userId) => {
     );
   }
 
-  const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedSprint = await Sprint.findById(sprint._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return sprintResponse(updatedSprint);
 };

@@ -29,6 +29,9 @@ const createComment = async (commentData, userId) => {
     user: userId,
   });
 
+  // Tăng số lượng bình luận trong task
+  await Task.findByIdAndUpdate(commentData.task, { $inc: { commentsCount: 1 } });
+
   // Gửi thông báo cho chủ dự án, người tạo task và người được giao (nếu khác người bình luận)
   const recipients = new Set();
   if (project.owner.toString() !== userId.toString())
@@ -95,6 +98,10 @@ const deleteComment = async (commentId, userId) => {
   }
 
   await Comment.findByIdAndDelete(commentId);
+  
+  // Giảm số lượng bình luận trong task
+  await Task.findByIdAndUpdate(comment.task, { $inc: { commentsCount: -1 } });
+
   return { message: "Xóa bình luận thành công" };
 };
 

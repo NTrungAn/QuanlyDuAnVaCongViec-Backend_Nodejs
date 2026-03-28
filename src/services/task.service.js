@@ -22,13 +22,14 @@ const taskResponse = (task) => ({
   creator: task.creator,
   sprint: task.sprint,
   epic: task.epic,
+  labels: task.labels || [],
   taskType: task.taskType,
   startDate: task.startDate,
   progress: task.progress,
   isDeleted: task.isDeleted,
   isArchived: task.isArchived,
   attachments: task.attachments,
-
+  commentsCount: task.commentsCount || 0,
 });
 
 const createTask = async (taskData, userId) => {
@@ -40,6 +41,14 @@ const createTask = async (taskData, userId) => {
   // Kiểm tra xem user có phải là thành viên của dự án không
   if (!project.members.includes(userId)) {
     throw new Error("Bạn không có quyền tạo công việc trong dự án này");
+  }
+
+  if (taskData.sprint) {
+    const Sprint = require('../models/Sprint.model');
+    const targetSprint = await Sprint.findById(taskData.sprint);
+    if (targetSprint && targetSprint.status === 'COMPLETED') {
+      throw new Error('Không thể tạo công việc trong Sprint đã hoàn thành');
+    }
   }
 
   const task = await Task.create({
@@ -88,6 +97,7 @@ const getTasksByProject = async (projectId, userId, query = {}) => {
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
     .populate("epic", "name status")
+    .populate("labels", "name color")
     .populate("taskType", "name icon color");
 
   if (query.sortBy === 'priority') {
@@ -104,6 +114,7 @@ const getTaskById = async (taskId, userId) => {
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
     .populate("epic", "name status")
+    .populate("labels", "name color")
     .populate("taskType", "name icon color");
 
   if (!task) {
@@ -139,6 +150,27 @@ const updateTask = async (taskId, updateData, userId) => {
   const previousAssignee = task.assignee ? task.assignee.toString() : null;
   const previousSprint = task.sprint ? task.sprint.toString() : null;
   const previousEpic = task.epic ? task.epic.toString() : null;
+
+  if (updateData.sprint !== undefined) {
+    const newSprint = updateData.sprint ? updateData.sprint.toString() : null;
+    if (newSprint !== previousSprint) {
+      const Sprint = require('../models/Sprint.model');
+      
+      if (previousSprint) {
+        const oldSprint = await Sprint.findById(previousSprint);
+        if (oldSprint && oldSprint.status === 'COMPLETED') {
+          throw new Error('Không thể kéo công việc ra khỏi Sprint đã hoàn thành');
+        }
+      }
+
+      if (newSprint) {
+        const targetSprint = await Sprint.findById(newSprint);
+        if (targetSprint && targetSprint.status === 'COMPLETED') {
+          throw new Error('Không thể chuyển công việc vào Sprint đã hoàn thành');
+        }
+      }
+    }
+  }
 
   Object.assign(task, updateData);
   if (updateData.sprint === null) {
@@ -231,6 +263,7 @@ const getBacklogByProject = async (projectId, userId, query = {}) => {
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("epic", "name status")
+    .populate("labels", "name color")
     .populate("taskType", "name icon color")
     .sort({ order: 1, createdAt: 1 });
 
