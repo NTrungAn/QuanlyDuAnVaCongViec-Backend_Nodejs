@@ -61,6 +61,11 @@ const taskSchema = new mongoose.Schema(
       ref: "Epic",
       default: null,
     },
+    parentTask: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+      default: null,
+    },
     labels: [
       {
         type: mongoose.Schema.Types.ObjectId,
