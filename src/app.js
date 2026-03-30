@@ -14,9 +14,15 @@ app.use(cors({
 
 app.use(express.json());
 
-// Tạo folder avatars nếu chưa tồn tại
+// Tạo folder avatars và evidence nếu chưa tồn tại
 const uploadDir = path.join(__dirname, 'images', 'avatars');
+const evidenceDir = path.join(__dirname, 'images', 'evidence');
 fs.mkdirSync(uploadDir, { recursive: true });
+fs.mkdirSync(evidenceDir, { recursive: true });
+
+// Serve avatar and evidence files (MUST BE BEFORE API ROUTES)
+app.use('/api/users/avatars', express.static(uploadDir));
+app.use('/api/tasks/evidence', express.static(evidenceDir));
 
 app.use('/api/users', require('./routes/auth.route'));
 app.use('/api/users', require('./routes/user.route'));
@@ -26,9 +32,8 @@ app.use('/api/comments', require('./routes/comment.route'));
 app.use('/api/stats', require('./routes/stat.route'));
 app.use('/api/notifications', require('./routes/notification.route'));
 app.use('/api/epics', require('./routes/epic.routes'));
-
-// Serve avatar files
-app.use('/api/users/avatars', express.static(uploadDir));
+app.use('/api/task-types', require('./routes/taskType.route'));
+app.use('/api/labels', require('./routes/label.route'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Project Management Node API is running.' });

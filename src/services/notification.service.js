@@ -11,8 +11,23 @@ const notificationResponse = (notification) => ({
   createdAt: notification.createdAt,
 });
 
+const emitNotification = async (notification) => {
+  const io = global.io;
+  if (!io) return;
+
+  const populated = await Notification.findById(notification._id)
+    .populate('sender', 'fullName avatarUrl')
+    .lean();
+
+  const payload = notificationResponse(populated || notification);
+  const room = `user:${String(notification.recipient)}`;
+  io.to(room).emit('notification:new', payload);
+  io.to(room).emit('notification:unread-count');
+};
+
 const createNotification = async (data) => {
   const notification = await Notification.create(data);
+  await emitNotification(notification);
   return notificationResponse(notification);
 };
 
@@ -36,6 +51,9 @@ const markAsRead = async (notificationId, userId) => {
 
 const markAllAsRead = async (userId) => {
   await Notification.updateMany({ recipient: userId, isRead: false }, { isRead: true });
+  if (global.io) {
+    global.io.to(`user:${String(userId)}`).emit('notification:unread-count');
+  }
   return { message: 'Đã đánh dấu tất cả là đã đọc' };
 };
 

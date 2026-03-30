@@ -17,11 +17,16 @@ router.delete('/:projectId', projectController.deleteProject);
 router.post('/:projectId/members', projectController.addMember);
 router.delete('/:projectId/members', projectController.removeMember);
 
+router.get('/:projectId/backlog', agileController.getBacklogData);
+router.patch('/:projectId/tasks/order', agileController.updateTaskOrder);
+
 router.post('/:projectId/sprints', validate(createSprintSchema), agileController.createSprint);
 router.get('/:projectId/sprints', agileController.getSprintsByProject);
 router.post('/:projectId/sprints/:sprintId/tasks', validate(linkTaskSchema), agileController.addTaskToSprint);
 router.put('/:projectId/sprints/:sprintId', validate(updateSprintSchema), agileController.updateSprint);
+router.patch('/:projectId/sprints/:sprintId/start', agileController.startSprint);
 router.delete('/:projectId/sprints/:sprintId', agileController.deleteSprint);
+
 
 router.post('/:projectId/epics', validate(createEpicSchema), agileController.createEpic);
 router.post('/:projectId/epics/:epicId/tasks', validate(linkTaskSchema), agileController.linkTaskToEpic);
