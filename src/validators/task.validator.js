@@ -49,6 +49,12 @@ const createTaskSchema = Joi.object({
     .allow(null, ""),
   epic: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  labels: Joi.array()
+    .items(Joi.string().regex(/^[0-9a-fA-F]{24}$/))
+    .allow(null),
+  parentTask: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
     .allow(null, "")
 });
 
@@ -78,6 +84,12 @@ const updateTaskSchema = Joi.object({
     .regex(/^[0-9a-fA-F]{24}$/)
     .allow(null, ""),
   epic: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  labels: Joi.array()
+    .items(Joi.string().regex(/^[0-9a-fA-F]{24}$/))
+    .allow(null),
+  parentTask: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
     .allow(null, "")
 });

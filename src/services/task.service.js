@@ -10,6 +10,8 @@ const priorityWeight = {
   "LOWEST": 0
 };
 
+const Attachment = require("../models/Attachment.model");
+
 const taskResponse = (task) => ({
   id: task._id,
   title: task.title,
@@ -23,6 +25,7 @@ const taskResponse = (task) => ({
   sprint: task.sprint,
   epic: task.epic,
   labels: task.labels || [],
+  parentTask: task.parentTask,
   taskType: task.taskType,
   startDate: task.startDate,
   progress: task.progress,
@@ -91,7 +94,7 @@ const getTasksByProject = async (projectId, userId, query = {}) => {
   }
 
 
-  let tasks = await Task.find({ project: projectId, isDeleted: { $ne: true } })
+  let tasks = await Task.find({ project: projectId, parentTask: null, isDeleted: { $ne: true } })
 
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
@@ -258,7 +261,7 @@ const getBacklogByProject = async (projectId, userId, query = {}) => {
   }
 
 
-  let tasks = await Task.find({ project: projectId, sprint: null, isDeleted: false })
+  let tasks = await Task.find({ project: projectId, sprint: null, parentTask: null, isDeleted: false })
 
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
@@ -274,6 +277,69 @@ const getBacklogByProject = async (projectId, userId, query = {}) => {
   return tasks.map(taskResponse);
 };
 
+const getSubtasks = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+  if (!task.project.members.includes(userId)) throw new Error("Bạn không có quyền xem trong dự án này");
+
+  const subtasks = await Task.find({ parentTask: taskId, isDeleted: { $ne: true } })
+    .populate("assignee", "fullName email avatarUrl")
+    .populate("creator", "fullName email avatarUrl")
+    .populate("labels", "name color")
+    .sort({ createdAt: 1 });
+  return subtasks.map(taskResponse);
+};
+
+const uploadAttachment = async (taskId, file, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+  if (!task.project.members.includes(userId)) throw new Error("Bạn không có quyền upload trong dự án này");
+  if (!file) throw new Error("Không có file nào được tải lên");
+
+  const attachment = await Attachment.create({
+    task: taskId,
+    fileName: file.originalname,
+    fileUrl: `/api/tasks/evidence/${file.filename}`,
+    uploadedBy: userId
+  });
+
+  return attachment;
+};
+
+const getAttachments = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) throw new Error("Công việc không tồn tại");
+  if (!task.project.members.includes(userId)) throw new Error("Bạn không có quyền xem trong dự án này");
+
+  const attachments = await Attachment.find({ task: taskId })
+    .populate("uploadedBy", "fullName email avatarUrl")
+    .sort({ createdAt: -1 });
+  return attachments;
+};
+
+const deleteAttachment = async (attachmentId, userId, userRole) => {
+  const attachment = await Attachment.findById(attachmentId).populate({ path: 'task', populate: { path: 'project' } });
+  if (!attachment) throw new Error("File không tồn tại");
+  
+  const isUploader = attachment.uploadedBy.toString() === userId.toString();
+  const isAdmin = userRole === 'ADMIN';
+
+  if (!isUploader && !isAdmin) {
+    throw new Error("Bạn không có quyền xóa tệp này");
+  }
+
+  const path = require('path');
+  const fs = require('fs');
+  const fileName = attachment.fileUrl.split('/').pop();
+  const filePath = path.resolve(__dirname, '..', 'images', 'evidence', fileName);
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
+
+  await Attachment.findByIdAndDelete(attachmentId);
+  return { message: "Xóa thành công" };
+};
+
 module.exports = {
   createTask,
   getTasksByProject,
@@ -281,4 +347,8 @@ module.exports = {
   updateTask,
   deleteTask,
   getBacklogByProject,
+  getSubtasks,
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment
 };
