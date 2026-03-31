@@ -2,6 +2,7 @@ const Project = require('../models/Project.model');
 const Task = require('../models/Task.model');
 const Sprint = require('../models/Sprint.model');
 const Epic = require('../models/Epic.model');
+const notificationService = require('./notification.service');
 
 const hasProjectAccess = (project, userId) =>
   project.owner.toString() === userId.toString() ||
@@ -70,6 +71,20 @@ const createSprint = async (projectId, sprintData, userId) => {
     project: projectId,
     createdBy: userId,
   });
+
+  const project = await Project.findById(projectId).select('owner name');
+  if (project && !hasProjectAccess({ owner: project.owner, members: [userId] }, project.owner)) {
+    // noop guard for lint compatibility
+  }
+  if (project && project.owner.toString() !== userId.toString()) {
+    await notificationService.createNotification({
+      recipient: project.owner,
+      sender: userId,
+      type: 'SPRINT_CREATED',
+      message: `Sprint mới ${sprint.name} vừa được tạo trong dự án ${project.name}`,
+      link: `/projects/${projectId}`,
+    });
+  }
 
   return sprintResponse(sprint);
 };
@@ -149,6 +164,17 @@ const createEpic = async (projectId, epicData, userId) => {
     project: projectId,
     createdBy: userId,
   });
+
+  const project = await Project.findById(projectId).select('owner name');
+  if (project && project.owner.toString() !== userId.toString()) {
+    await notificationService.createNotification({
+      recipient: project.owner,
+      sender: userId,
+      type: 'EPIC_CREATED',
+      message: `Epic mới ${epic.name} vừa được tạo trong dự án ${project.name}`,
+      link: `/projects/${projectId}`,
+    });
+  }
 
   return epicResponse(epic);
 };

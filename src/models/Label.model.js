@@ -10,7 +10,7 @@ const labelSchema = new mongoose.Schema(
     color: {
       type: String,
       required: true,
-      default: "#e2e8f0", // Default light gray
+      default: "#e2e8f0",
     },
     project: {
       type: mongoose.Schema.Types.ObjectId,
@@ -29,4 +29,5 @@ const labelSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("Label", labelSchema);
+module.exports =
+  mongoose.models.Label || mongoose.model("Label", labelSchema);

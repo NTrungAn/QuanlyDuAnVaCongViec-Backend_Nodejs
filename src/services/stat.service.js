@@ -1,3 +1,4 @@
+const { includesId, isSameId } = require('../utils/id.util');
 const Project = require("../models/Project.model");
 const Task = require("../models/Task.model");
 
@@ -7,7 +8,7 @@ const getProjectStats = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId) && !isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền xem thống kê dự án này");
   }
 
@@ -30,8 +31,9 @@ const getProjectStats = async (projectId, userId) => {
 
   tasks.forEach((task) => {
     if (statusCounts[task.status] !== undefined) statusCounts[task.status]++;
-    if (priorityCounts[task.priority] !== undefined)
+    if (priorityCounts[task.priority] !== undefined) {
       priorityCounts[task.priority]++;
+    }
   });
 
   const completionPercentage =
@@ -88,6 +90,7 @@ const getMemberPerformanceReport = async (projectId, userId) => {
     "members",
     "fullName email avatarUrl",
   );
+
   if (!project) {
     throw new Error("Dự án không tồn tại");
   }
@@ -140,7 +143,7 @@ const getProjectTimelineReport = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId) && !isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền xem báo cáo này");
   }
 

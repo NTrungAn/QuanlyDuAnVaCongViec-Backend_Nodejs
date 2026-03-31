@@ -1,117 +1,174 @@
-const mongoose = require("mongoose");
-const Label = require("../models/Label.model");
-const Project = require("../models/Project.model");
-const Task = require("../models/Task.model");
+const agileService = require('../services/agile.service');
 
-// GET /api/labels/project/:projectId
-exports.getLabelsByProject = async (req, res) => {
+const createSprint = async (req, res) => {
   try {
-    const { projectId } = req.params;
-    
-    const project = await Project.findById(projectId);
-    if (!project) {
-      return res.status(404).json({ message: "Dự án không tồn tại" });
-    }
-
-    const labels = await Label.find({ project: projectId }).sort({ createdAt: -1 });
-    res.json(labels);
-  } catch (error) {
-    console.error("Lỗi lấy danh sách Label:", error);
-    res.status(500).json({ message: "Lỗi Server" });
-  }
-};
-
-// POST /api/labels
-exports.createLabel = async (req, res) => {
-  try {
-    const { name, color, project } = req.body;
-    
-    if (!name || !project) {
-      return res.status(400).json({ message: "Vui lòng cung cấp tên và dự án cho nhãn" });
-    }
-
-    const projectExists = await Project.findById(project);
-    if (!projectExists) {
-      return res.status(404).json({ message: "Dự án không tồn tại" });
-    }
-
-    // Kiểm tra tên nhãn trùng trong cùng dự án
-    const existingLabel = await Label.findOne({ name: name.trim(), project });
-    if (existingLabel) {
-      return res.status(400).json({ message: "Tên nhãn này đã tồn tại trong dự án" });
-    }
-
-    const newLabel = new Label({
-      name: name.trim(),
-      color: color || "#e2e8f0",
-      project,
-      creator: req.user._id,
-    });
-
-    await newLabel.save();
-    res.status(201).json(newLabel);
-  } catch (error) {
-    console.error("Lỗi tạo Label:", error);
-    res.status(500).json({ message: "Lỗi Server" });
-  }
-};
-
-// PUT /api/labels/:id
-exports.updateLabel = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, color } = req.body;
-
-    const label = await Label.findById(id);
-    if (!label) {
-      return res.status(404).json({ message: "Nhãn không tồn tại" });
-    }
-
-    if (name) {
-      // KIểm tra trùng tên
-      const existingLabel = await Label.findOne({ 
-        name: name.trim(), 
-        project: label.project, 
-        _id: { $ne: id } 
-      });
-      if (existingLabel) {
-        return res.status(400).json({ message: "Tên nhãn này đã tồn tại trong dự án" });
-      }
-      label.name = name.trim();
-    }
-    
-    if (color) {
-      label.color = color;
-    }
-
-    await label.save();
-    res.json(label);
-  } catch (error) {
-    console.error("Lỗi cập nhật Label:", error);
-    res.status(500).json({ message: "Lỗi Server" });
-  }
-};
-
-// DELETE /api/labels/:id
-exports.deleteLabel = async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const label = await Label.findById(id);
-    if (!label) {
-      return res.status(404).json({ message: "Nhãn không tồn tại" });
-    }
-
-    // Cập nhật các Task đang sử dụng nhãn này: Xóa nhãn khỏi mảng labels của Task
-    await Task.updateMany(
-      { labels: id },
-      { $pull: { labels: id } }
+    const sprint = await agileService.createSprint(
+      req.params.projectId,
+      req.body,
+      req.user._id,
     );
-
-    await Label.findByIdAndDelete(id);
-    res.json({ message: "Xóa nhãn thành công" });
+    return res.status(201).json(sprint);
   } catch (error) {
-    console.error("Lỗi xóa Label:", error);
-    res.status(500).json({ message: "Lỗi Server" });
+    return res.status(400).json({ message: error.message });
   }
+};
+
+const getSprintsByProject = async (req, res) => {
+  try {
+    const sprints = await agileService.getSprintsByProject(
+      req.params.projectId,
+      req.user._id,
+    );
+    return res.status(200).json(sprints);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const addTaskToSprint = async (req, res) => {
+  try {
+    const result = await agileService.addTaskToSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.body.taskId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const createEpic = async (req, res) => {
+  try {
+    const epic = await agileService.createEpic(
+      req.params.projectId,
+      req.body,
+      req.user._id,
+    );
+    return res.status(201).json(epic);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const linkTaskToEpic = async (req, res) => {
+  try {
+    const result = await agileService.linkTaskToEpic(
+      req.params.projectId,
+      req.params.epicId,
+      req.body.taskId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const updateEpic = async (req, res) => {
+  try {
+    const epic = await agileService.updateEpic(
+      req.params.projectId,
+      req.params.epicId,
+      req.body,
+      req.user._id,
+    );
+    return res.status(200).json(epic);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteEpic = async (req, res) => {
+  try {
+    const result = await agileService.deleteEpic(
+      req.params.projectId,
+      req.params.epicId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const updateSprint = async (req, res) => {
+  try {
+    const sprint = await agileService.updateSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.body,
+      req.user._id,
+    );
+    return res.status(200).json(sprint);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteSprint = async (req, res) => {
+  try {
+    const result = await agileService.deleteSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const getBacklogData = async (req, res) => {
+  try {
+    const data = await agileService.getBacklogData(
+      req.params.projectId,
+      req.user._id,
+    );
+    return res.status(200).json(data);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const updateTaskOrder = async (req, res) => {
+  try {
+    const result = await agileService.updateTaskOrder(
+      req.params.projectId,
+      req.body.updates,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const startSprint = async (req, res) => {
+  try {
+    const result = await agileService.startSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  createSprint,
+  getSprintsByProject,
+  addTaskToSprint,
+  createEpic,
+  linkTaskToEpic,
+  updateEpic,
+  deleteEpic,
+  updateSprint,
+  deleteSprint,
+  getBacklogData,
+  updateTaskOrder,
+  startSprint,
 };
