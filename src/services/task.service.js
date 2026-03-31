@@ -66,13 +66,14 @@ const ensureProjectAccess = async (projectId, userId) => {
   return project;
 };
 
-const populateTaskById = async (taskId) => Task.findById(taskId)
-  .populate('assignee', 'fullName email avatarUrl')
-  .populate('creator', 'fullName email avatarUrl')
-  .populate('sprint', 'name status startDate endDate')
-  .populate('epic', 'name status')
-  .populate('labels', 'name color')
-  .populate('taskType', 'name icon color');
+const populateTaskById = async (taskId) =>
+  Task.findById(taskId)
+    .populate('assignee', 'fullName email avatarUrl')
+    .populate('creator', 'fullName email avatarUrl')
+    .populate('sprint', 'name status startDate endDate')
+    .populate('epic', 'name status')
+    .populate('labels', 'name color')
+    .populate('taskType', 'name icon color');
 
 const createTask = async (taskData, userId) => {
   const project = await ensureProjectAccess(taskData.project, userId);
@@ -87,24 +88,37 @@ const createTask = async (taskData, userId) => {
   if (taskData.sprint) {
     const targetSprint = await Sprint.findById(taskData.sprint);
     if (!targetSprint) throw new Error('Sprint không tồn tại');
-    if (!isSameId(targetSprint.project, taskData.project)) throw new Error('Sprint không thuộc dự án này');
-    if (targetSprint.status === 'COMPLETED') throw new Error('Không thể tạo công việc trong Sprint đã hoàn thành');
+    if (!isSameId(targetSprint.project, taskData.project)) {
+      throw new Error('Sprint không thuộc dự án này');
+    }
+    if (targetSprint.status === 'COMPLETED') {
+      throw new Error('Không thể tạo công việc trong Sprint đã hoàn thành');
+    }
   }
 
   if (taskData.epic) {
     const targetEpic = await Epic.findById(taskData.epic);
     if (!targetEpic) throw new Error('Epic không tồn tại');
-    if (!isSameId(targetEpic.project, taskData.project)) throw new Error('Epic không thuộc dự án này');
+    if (!isSameId(targetEpic.project, taskData.project)) {
+      throw new Error('Epic không thuộc dự án này');
+    }
   }
 
-  const task = await Task.create({ ...taskData, creator: userId });
+  const task = await Task.create({
+    ...taskData,
+    creator: userId,
+  });
 
   if (task.sprint) {
-    await Sprint.findByIdAndUpdate(task.sprint, { $addToSet: { tasks: task._id } });
+    await Sprint.findByIdAndUpdate(task.sprint, {
+      $addToSet: { tasks: task._id },
+    });
   }
 
   if (task.epic) {
-    await Epic.findByIdAndUpdate(task.epic, { $addToSet: { tasks: task._id } });
+    await Epic.findByIdAndUpdate(task.epic, {
+      $addToSet: { tasks: task._id },
+    });
   }
 
   if (task.assignee && !isSameId(task.assignee, userId)) {
@@ -134,7 +148,11 @@ const createTask = async (taskData, userId) => {
 const getTasksByProject = async (projectId, userId, query = {}) => {
   await ensureProjectAccess(projectId, userId);
 
-  let tasks = await Task.find({ project: projectId, parentTask: null, isDeleted: { $ne: true } })
+  let tasks = await Task.find({
+    project: projectId,
+    parentTask: null,
+    isDeleted: { $ne: true },
+  })
     .populate('assignee', 'fullName email avatarUrl')
     .populate('creator', 'fullName email avatarUrl')
     .populate('sprint', 'name status startDate endDate')
@@ -200,11 +218,16 @@ const updateTask = async (taskId, updateData, userId) => {
           throw new Error('Không thể kéo công việc ra khỏi Sprint đã hoàn thành');
         }
       }
+
       if (newSprint) {
         const targetSprint = await Sprint.findById(newSprint);
         if (!targetSprint) throw new Error('Sprint không tồn tại');
-        if (!isSameId(targetSprint.project, project._id)) throw new Error('Sprint không thuộc dự án này');
-        if (targetSprint.status === 'COMPLETED') throw new Error('Không thể chuyển công việc vào Sprint đã hoàn thành');
+        if (!isSameId(targetSprint.project, project._id)) {
+          throw new Error('Sprint không thuộc dự án này');
+        }
+        if (targetSprint.status === 'COMPLETED') {
+          throw new Error('Không thể chuyển công việc vào Sprint đã hoàn thành');
+        }
       }
     }
   }
@@ -214,25 +237,45 @@ const updateTask = async (taskId, updateData, userId) => {
     if (newEpic) {
       const targetEpic = await Epic.findById(newEpic);
       if (!targetEpic) throw new Error('Epic không tồn tại');
-      if (!isSameId(targetEpic.project, project._id)) throw new Error('Epic không thuộc dự án này');
+      if (!isSameId(targetEpic.project, project._id)) {
+        throw new Error('Epic không thuộc dự án này');
+      }
     }
   }
 
   Object.assign(task, updateData);
+
   if (updateData.sprint === null) task.sprint = null;
   if (updateData.epic === null) task.epic = null;
+
   await task.save();
 
   const newSprint = task.sprint ? normalizeId(task.sprint) : null;
   if (newSprint !== previousSprint) {
-    if (previousSprint) await Sprint.findByIdAndUpdate(previousSprint, { $pull: { tasks: task._id } });
-    if (newSprint) await Sprint.findByIdAndUpdate(newSprint, { $addToSet: { tasks: task._id } });
+    if (previousSprint) {
+      await Sprint.findByIdAndUpdate(previousSprint, {
+        $pull: { tasks: task._id },
+      });
+    }
+    if (newSprint) {
+      await Sprint.findByIdAndUpdate(newSprint, {
+        $addToSet: { tasks: task._id },
+      });
+    }
   }
 
   const newEpic = task.epic ? normalizeId(task.epic) : null;
   if (newEpic !== previousEpic) {
-    if (previousEpic) await Epic.findByIdAndUpdate(previousEpic, { $pull: { tasks: task._id } });
-    if (newEpic) await Epic.findByIdAndUpdate(newEpic, { $addToSet: { tasks: task._id } });
+    if (previousEpic) {
+      await Epic.findByIdAndUpdate(previousEpic, {
+        $pull: { tasks: task._id },
+      });
+    }
+    if (newEpic) {
+      await Epic.findByIdAndUpdate(newEpic, {
+        $addToSet: { tasks: task._id },
+      });
+    }
   }
 
   const newAssignee = task.assignee ? normalizeId(task.assignee) : null;
@@ -258,12 +301,15 @@ const deleteTask = async (taskId, userId) => {
   const isOwner = isSameId(project.owner, userId);
   const isCreator = isSameId(task.creator, userId);
 
-  if (!isOwner && !isCreator) throw new Error('Bạn không có quyền xóa công việc này');
+  if (!isOwner && !isCreator) {
+    throw new Error('Bạn không có quyền xóa công việc này');
+  }
 
   if (task.sprint) {
     const Sprint = require('../models/Sprint.model');
     await Sprint.findByIdAndUpdate(task.sprint, { $pull: { tasks: task._id } });
   }
+
   if (task.epic) {
     const Epic = require('../models/Epic.model');
     await Epic.findByIdAndUpdate(task.epic, { $pull: { tasks: task._id } });
@@ -276,7 +322,12 @@ const deleteTask = async (taskId, userId) => {
 const getBacklogByProject = async (projectId, userId, query = {}) => {
   await ensureProjectAccess(projectId, userId);
 
-  let tasks = await Task.find({ project: projectId, sprint: null, parentTask: null, isDeleted: false })
+  let tasks = await Task.find({
+    project: projectId,
+    sprint: null,
+    parentTask: null,
+    isDeleted: false,
+  })
     .populate('assignee', 'fullName email avatarUrl')
     .populate('creator', 'fullName email avatarUrl')
     .populate('epic', 'name status')
@@ -298,11 +349,15 @@ const getSubtasks = async (taskId, userId) => {
     throw new Error('Bạn không có quyền xem trong dự án này');
   }
 
-  const subtasks = await Task.find({ parentTask: taskId, isDeleted: { $ne: true } })
+  const subtasks = await Task.find({
+    parentTask: taskId,
+    isDeleted: { $ne: true },
+  })
     .populate('assignee', 'fullName email avatarUrl')
     .populate('creator', 'fullName email avatarUrl')
     .populate('labels', 'name color')
     .sort({ createdAt: 1 });
+
   return subtasks.map(taskResponse);
 };
 
@@ -334,11 +389,16 @@ const getAttachments = async (taskId, userId) => {
   const attachments = await Attachment.find({ task: taskId })
     .populate('uploadedBy', 'fullName email avatarUrl')
     .sort({ createdAt: -1 });
+
   return attachments;
 };
 
 const deleteAttachment = async (attachmentId, userId, userRole) => {
-  const attachment = await Attachment.findById(attachmentId).populate({ path: 'task', populate: { path: 'project' } });
+  const attachment = await Attachment.findById(attachmentId).populate({
+    path: 'task',
+    populate: { path: 'project' },
+  });
+
   if (!attachment) throw new Error('File không tồn tại');
 
   const isUploader = isSameId(attachment.uploadedBy, userId);
@@ -352,7 +412,10 @@ const deleteAttachment = async (attachmentId, userId, userRole) => {
   const fs = require('fs');
   const fileName = attachment.fileUrl.split('/').pop();
   const filePath = path.resolve(__dirname, '..', 'images', 'evidence', fileName);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
+  }
 
   await Attachment.findByIdAndDelete(attachmentId);
   return { message: 'Xóa thành công' };

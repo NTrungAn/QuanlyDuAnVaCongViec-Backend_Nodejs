@@ -21,12 +21,16 @@ const projectResponse = (project) => ({
   endDate: project.endDate,
   status: project.status,
   owner: userResponse(project.owner),
-  members: Array.isArray(project.members) ? project.members.map(userResponse) : [],
+  members: Array.isArray(project.members)
+    ? project.members.map(userResponse)
+    : [],
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
 });
 
-const hasProjectAccess = (project, userId) => isSameId(project.owner, userId) || includesId(project.members, userId);
+const hasProjectAccess = (project, userId) =>
+  isSameId(project.owner, userId) ||
+  includesId(project.members, userId);
 
 const createProject = async (projectData, userId) => {
   const project = await Project.create({
@@ -60,49 +64,61 @@ const getProjectById = async (projectId, userId) => {
   const project = await Project.findById(projectId)
     .populate('owner', 'fullName email avatarUrl')
     .populate('members', 'fullName email avatarUrl');
+
   if (!project) {
     throw new Error('Dự án không tồn tại');
   }
+
   if (!hasProjectAccess(project, userId)) {
     throw new Error('Bạn không có quyền truy cập dự án này');
   }
+
   return projectResponse(project);
 };
 
 const updateProject = async (projectId, updateData, userId) => {
   const project = await Project.findById(projectId);
+
   if (!project) {
     throw new Error('Dự án không tồn tại');
   }
+
   if (!isSameId(project.owner, userId)) {
     throw new Error('Bạn không có quyền cập nhật dự án này');
   }
 
   Object.assign(project, updateData);
   await project.save();
+
   const populated = await Project.findById(project._id)
     .populate('owner', 'fullName email avatarUrl')
     .populate('members', 'fullName email avatarUrl');
+
   return projectResponse(populated || project);
 };
 
 const deleteProject = async (projectId, userId) => {
   const project = await Project.findById(projectId);
+
   if (!project) {
     throw new Error('Dự án không tồn tại');
   }
+
   if (!isSameId(project.owner, userId)) {
     throw new Error('Bạn không có quyền xóa dự án này');
   }
+
   await Project.findByIdAndDelete(projectId);
   return { message: 'Xóa dự án thành công' };
 };
 
 const addMember = async (projectId, memberId, ownerId) => {
   const project = await Project.findById(projectId);
+
   if (!project) {
     throw new Error('Dự án không tồn tại');
   }
+
   if (!isSameId(project.owner, ownerId)) {
     throw new Error('Chỉ chủ sở hữu mới có quyền thêm thành viên');
   }
@@ -111,6 +127,7 @@ const addMember = async (projectId, memberId, ownerId) => {
   if (!user) {
     throw new Error('Người dùng không tồn tại');
   }
+
   if (includesId(project.members, memberId)) {
     throw new Error('Người dùng đã là thành viên của dự án');
   }
@@ -129,26 +146,35 @@ const addMember = async (projectId, memberId, ownerId) => {
   const populated = await Project.findById(project._id)
     .populate('owner', 'fullName email avatarUrl')
     .populate('members', 'fullName email avatarUrl');
+
   return projectResponse(populated || project);
 };
 
 const removeMember = async (projectId, memberId, ownerId) => {
   const project = await Project.findById(projectId);
+
   if (!project) {
     throw new Error('Dự án không tồn tại');
   }
+
   if (!isSameId(project.owner, ownerId)) {
     throw new Error('Chỉ chủ sở hữu mới có quyền xóa thành viên');
   }
+
   if (isSameId(memberId, project.owner)) {
     throw new Error('Không thể xóa chủ sở hữu khỏi dự án');
   }
 
-  project.members = project.members.filter((m) => !isSameId(m, memberId));
+  project.members = project.members.filter(
+    (m) => !isSameId(m, memberId)
+  );
+
   await project.save();
+
   const populated = await Project.findById(project._id)
     .populate('owner', 'fullName email avatarUrl')
     .populate('members', 'fullName email avatarUrl');
+
   return projectResponse(populated || project);
 };
 

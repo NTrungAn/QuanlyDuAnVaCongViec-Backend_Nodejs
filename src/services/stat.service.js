@@ -31,8 +31,9 @@ const getProjectStats = async (projectId, userId) => {
 
   tasks.forEach((task) => {
     if (statusCounts[task.status] !== undefined) statusCounts[task.status]++;
-    if (priorityCounts[task.priority] !== undefined)
+    if (priorityCounts[task.priority] !== undefined) {
       priorityCounts[task.priority]++;
+    }
   });
 
   const completionPercentage =
@@ -89,6 +90,7 @@ const getMemberPerformanceReport = async (projectId, userId) => {
     "members",
     "fullName email avatarUrl",
   );
+
   if (!project) {
     throw new Error("Dự án không tồn tại");
   }

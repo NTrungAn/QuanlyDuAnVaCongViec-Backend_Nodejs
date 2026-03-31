@@ -31,4 +31,5 @@ const taskTypeSchema = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("TaskType", taskTypeSchema);
+module.exports =
+  mongoose.models.TaskType || mongoose.model("TaskType", taskTypeSchema);
