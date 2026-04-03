@@ -1,3 +1,4 @@
+const { includesId, isSameId } = require('../utils/id.util');
 const Project = require("../models/Project.model");
 const Task = require("../models/Task.model");
 
@@ -7,7 +8,7 @@ const getProjectStats = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId) && !isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền xem thống kê dự án này");
   }
 
@@ -140,7 +141,7 @@ const getProjectTimelineReport = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId) && !isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền xem báo cáo này");
   }
 

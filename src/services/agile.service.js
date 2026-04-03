@@ -2,6 +2,7 @@ const Project = require('../models/Project.model');
 const Task = require('../models/Task.model');
 const Sprint = require('../models/Sprint.model');
 const Epic = require('../models/Epic.model');
+const notificationService = require('./notification.service');
 
 const hasProjectAccess = (project, userId) =>
   project.owner.toString() === userId.toString() ||
@@ -35,6 +36,7 @@ const sprintResponse = (sprint) => ({
         title: task.title,
         status: task.status,
         priority: task.priority,
+        taskType: task.taskType,
       }))
     : [],
   createdAt: sprint.createdAt,
@@ -54,6 +56,7 @@ const epicResponse = (epic) => ({
         title: task.title,
         status: task.status,
         priority: task.priority,
+        taskType: task.taskType,
       }))
     : [],
   createdAt: epic.createdAt,
@@ -69,6 +72,20 @@ const createSprint = async (projectId, sprintData, userId) => {
     createdBy: userId,
   });
 
+  const project = await Project.findById(projectId).select('owner name');
+  if (project && !hasProjectAccess({ owner: project.owner, members: [userId] }, project.owner)) {
+    // noop guard for lint compatibility
+  }
+  if (project && project.owner.toString() !== userId.toString()) {
+    await notificationService.createNotification({
+      recipient: project.owner,
+      sender: userId,
+      type: 'SPRINT_CREATED',
+      message: `Sprint mới ${sprint.name} vừa được tạo trong dự án ${project.name}`,
+      link: `/projects/${projectId}`,
+    });
+  }
+
   return sprintResponse(sprint);
 };
 
@@ -76,7 +93,11 @@ const getSprintsByProject = async (projectId, userId) => {
   await ensureProjectAccess(projectId, userId);
 
   const sprints = await Sprint.find({ project: projectId })
-    .populate('tasks', 'title status priority')
+    .populate({
+      path: 'tasks',
+      select: 'title status priority taskType',
+      populate: { path: 'taskType' },
+    })
     .sort({ startDate: 1, createdAt: 1 });
 
   return sprints.map(sprintResponse);
@@ -92,6 +113,10 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
 
   if (!sprint) {
     throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.status === 'COMPLETED') {
+    throw new Error('Không thể thêm công việc vào Sprint đã hoàn thành');
   }
 
   if (!task) {
@@ -119,10 +144,11 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
     $addToSet: { tasks: task._id },
   });
 
-  const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedSprint = await Sprint.findById(sprint._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return {
     message: 'Thêm task vào sprint thành công',
@@ -138,6 +164,17 @@ const createEpic = async (projectId, epicData, userId) => {
     project: projectId,
     createdBy: userId,
   });
+
+  const project = await Project.findById(projectId).select('owner name');
+  if (project && project.owner.toString() !== userId.toString()) {
+    await notificationService.createNotification({
+      recipient: project.owner,
+      sender: userId,
+      type: 'EPIC_CREATED',
+      message: `Epic mới ${epic.name} vừa được tạo trong dự án ${project.name}`,
+      link: `/projects/${projectId}`,
+    });
+  }
 
   return epicResponse(epic);
 };
@@ -179,10 +216,11 @@ const linkTaskToEpic = async (projectId, epicId, taskId, userId) => {
     $addToSet: { tasks: task._id },
   });
 
-  const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedEpic = await Epic.findById(epic._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return {
     message: 'Gắn task vào epic thành công',
@@ -205,10 +243,11 @@ const updateEpic = async (projectId, epicId, updateData, userId) => {
   Object.assign(epic, updateData);
   await epic.save();
 
-  const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedEpic = await Epic.findById(epic._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return epicResponse(updatedEpic);
 };
@@ -256,10 +295,11 @@ const updateSprint = async (projectId, sprintId, updateData, userId) => {
     );
   }
 
-  const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
-  );
+  const updatedSprint = await Sprint.findById(sprint._id).populate({
+    path: 'tasks',
+    select: 'title status priority taskType',
+    populate: { path: 'taskType' },
+  });
 
   return sprintResponse(updatedSprint);
 };
@@ -283,6 +323,106 @@ const deleteSprint = async (projectId, sprintId, userId) => {
   return { message: 'Xóa sprint thành công' };
 };
 
+const getBacklogData = async (projectId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const backlogTasks = await Task.find({
+    project: projectId,
+    sprint: null,
+    isDeleted: false,
+    isArchived: false,
+  })
+    .sort({ order: 1, createdAt: -1 })
+    .select('title status priority storyPoint order assignee createdAt');
+
+  const sprints = await Sprint.find({ project: projectId })
+    .sort({ startDate: 1, createdAt: 1 })
+    .lean();
+
+  const sprintsWithTasks = await Promise.all(
+    sprints.map(async (sprint) => {
+      const tasks = await Task.find({
+        sprint: sprint._id,
+        isDeleted: false,
+        isArchived: false,
+      })
+        .sort({ order: 1, createdAt: -1 })
+        .select('title status priority storyPoint order assignee createdAt');
+
+      return {
+        ...sprint,
+        id: sprint._id,
+        tasks,
+      };
+    }),
+  );
+
+  return {
+    backlogTasks,
+    sprints: sprintsWithTasks,
+  };
+};
+
+const updateTaskOrder = async (projectId, updates, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    throw new Error('Dữ liệu cập nhật không hợp lệ');
+  }
+
+  const bulkOps = updates.map((update) => ({
+    updateOne: {
+      filter: { _id: update.taskId, project: projectId },
+      update: {
+        $set: {
+          order: update.order,
+          sprint: update.sprintId || null,
+        },
+      },
+    },
+  }));
+
+  await Task.bulkWrite(bulkOps);
+
+  return { message: 'Cập nhật thứ tự task thành công' };
+};
+
+const startSprint = async (projectId, sprintId, userId) => {
+  await ensureProjectAccess(projectId, userId);
+
+  const sprint = await Sprint.findById(sprintId);
+  if (!sprint) {
+    throw new Error('Sprint không tồn tại');
+  }
+
+  if (sprint.project.toString() !== projectId.toString()) {
+    throw new Error('Sprint không thuộc dự án này');
+  }
+
+  if (sprint.status !== 'PLANNED') {
+    throw new Error(
+      'Chỉ có thể khởi động Sprint đang ở trạng thái Cần thực hiện (PLANNED)',
+    );
+  }
+
+  const activeSprint = await Sprint.findOne({
+    project: projectId,
+    status: 'ACTIVE',
+  });
+
+  if (activeSprint) {
+    throw new Error(
+      'Dự án đã có một Sprint đang chạy (ACTIVE). Vui lòng hoàn thành Sprint đó trước.',
+    );
+  }
+
+  sprint.status = 'ACTIVE';
+  sprint.startDate = new Date();
+  await sprint.save();
+
+  return sprintResponse(sprint);
+};
+
 module.exports = {
   createSprint,
   getSprintsByProject,
@@ -293,4 +433,7 @@ module.exports = {
   deleteEpic,
   updateSprint,
   deleteSprint,
+  getBacklogData,
+  updateTaskOrder,
+  startSprint,
 };
