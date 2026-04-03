@@ -20,10 +20,7 @@ const getAllProjects = async (req, res) => {
 
 const getProjectById = async (req, res) => {
   try {
-    const project = await projectService.getProjectById(
-      req.params.projectId,
-      req.user._id
-    );
+    const project = await projectService.getProjectById(req.params.projectId, req.user._id);
     return res.status(200).json(project);
   } catch (error) {
     return res.status(404).json({ message: error.message });
@@ -32,11 +29,7 @@ const getProjectById = async (req, res) => {
 
 const updateProject = async (req, res) => {
   try {
-    const project = await projectService.updateProject(
-      req.params.projectId,
-      req.body,
-      req.user._id
-    );
+    const project = await projectService.updateProject(req.params.projectId, req.body, req.user._id);
     return res.status(200).json(project);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -45,10 +38,7 @@ const updateProject = async (req, res) => {
 
 const deleteProject = async (req, res) => {
   try {
-    const result = await projectService.deleteProject(
-      req.params.projectId,
-      req.user._id
-    );
+    const result = await projectService.deleteProject(req.params.projectId, req.user._id);
     return res.status(200).json(result);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -58,11 +48,7 @@ const deleteProject = async (req, res) => {
 const addMember = async (req, res) => {
   try {
     const { memberId } = req.body;
-    const project = await projectService.addMember(
-      req.params.projectId,
-      memberId,
-      req.user._id
-    );
+    const project = await projectService.addMember(req.params.projectId, memberId, req.user._id);
     return res.status(200).json(project);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -72,11 +58,7 @@ const addMember = async (req, res) => {
 const removeMember = async (req, res) => {
   try {
     const { memberId } = req.body;
-    const project = await projectService.removeMember(
-      req.params.projectId,
-      memberId,
-      req.user._id
-    );
+    const project = await projectService.removeMember(req.params.projectId, memberId, req.user._id);
     return res.status(200).json(project);
   } catch (error) {
     return res.status(400).json({ message: error.message });

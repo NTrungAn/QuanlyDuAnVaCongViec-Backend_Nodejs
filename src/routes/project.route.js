@@ -4,13 +4,7 @@ const projectController = require('../controllers/project.controller');
 const agileController = require('../controllers/agile.controller');
 const { protect, validate } = require('../middlewares/auth.middleware');
 const { createProjectSchema, updateProjectSchema } = require('../validators/project.validator');
-const {
-  createSprintSchema,
-  createEpicSchema,
-  linkTaskSchema,
-  updateEpicSchema,
-  updateSprintSchema
-} = require('../validators/agile.validator');
+const { createSprintSchema, createEpicSchema, linkTaskSchema, updateEpicSchema, updateSprintSchema } = require('../validators/agile.validator');
 
 router.use(protect); // Tất cả các API Project đều yêu cầu đăng nhập
 
@@ -32,6 +26,7 @@ router.post('/:projectId/sprints/:sprintId/tasks', validate(linkTaskSchema), agi
 router.put('/:projectId/sprints/:sprintId', validate(updateSprintSchema), agileController.updateSprint);
 router.patch('/:projectId/sprints/:sprintId/start', agileController.startSprint);
 router.delete('/:projectId/sprints/:sprintId', agileController.deleteSprint);
+
 
 router.post('/:projectId/epics', validate(createEpicSchema), agileController.createEpic);
 router.post('/:projectId/epics/:epicId/tasks', validate(linkTaskSchema), agileController.linkTaskToEpic);

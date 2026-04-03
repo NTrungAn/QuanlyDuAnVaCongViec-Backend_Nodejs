@@ -30,8 +30,6 @@ const createNotification = async (data) => {
   await emitNotification(notification);
   return notificationResponse(notification);
 };
-  return notificationResponse(notification);
-};
 
 const getUserNotifications = async (userId) => {
   const notifications = await Notification.find({ recipient: userId })
