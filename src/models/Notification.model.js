@@ -18,9 +18,6 @@ const notificationSchema = new mongoose.Schema(
         "COMMENT_ADDED",
         "PROJECT_INVITATION",
         "TASK_UPDATED",
-        "TASK_CREATED",
-        "SPRINT_CREATED",
-        "EPIC_CREATED",
         "SYSTEM",
       ],
       required: true,
@@ -40,9 +37,7 @@ const notificationSchema = new mongoose.Schema(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
-module.exports =
-  mongoose.models.Notification ||
-  mongoose.model("Notification", notificationSchema);
+module.exports = mongoose.model("Notification", notificationSchema);

@@ -20,9 +20,7 @@ const createComment = async (commentData, userId) => {
 
   // Kiểm tra user có phải thành viên dự án không
   const project = task.project;
-  const isMemberOrOwner = project.owner.toString() === userId.toString() || 
-                          project.members.some(m => m.toString() === userId.toString());
-  if (!isMemberOrOwner) {
+  if (!project.members.includes(userId)) {
     throw new Error("Bạn không có quyền bình luận trong dự án này");
   }
 
@@ -30,9 +28,6 @@ const createComment = async (commentData, userId) => {
     ...commentData,
     user: userId,
   });
-
-  // Tăng số lượng bình luận trong task
-  await Task.findByIdAndUpdate(commentData.task, { $inc: { commentsCount: 1 } });
 
   // Gửi thông báo cho chủ dự án, người tạo task và người được giao (nếu khác người bình luận)
   const recipients = new Set();
@@ -63,9 +58,7 @@ const getCommentsByTask = async (taskId, userId) => {
   }
 
   const project = task.project;
-  const isMemberOrOwner = project.owner.toString() === userId.toString() || 
-                          project.members.some(m => m.toString() === userId.toString());
-  if (!isMemberOrOwner) {
+  if (!project.members.includes(userId)) {
     throw new Error("Bạn không có quyền xem bình luận trong dự án này");
   }
 
@@ -102,10 +95,6 @@ const deleteComment = async (commentId, userId) => {
   }
 
   await Comment.findByIdAndDelete(commentId);
-  
-  // Giảm số lượng bình luận trong task
-  await Task.findByIdAndUpdate(comment.task, { $inc: { commentsCount: -1 } });
-
   return { message: "Xóa bình luận thành công" };
 };
 

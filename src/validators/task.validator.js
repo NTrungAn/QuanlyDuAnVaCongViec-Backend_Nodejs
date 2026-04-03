@@ -37,25 +37,7 @@ const createTaskSchema = Joi.object({
     .allow(null)
     .messages({
       'string.pattern.base': 'ID người thực hiện không hợp lệ'
-    }),
-  taskType: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
-    .messages({
-      'string.pattern.base': 'ID loại công việc không hợp lệ'
-    }),
-  sprint: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  epic: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  labels: Joi.array()
-    .items(Joi.string().regex(/^[0-9a-fA-F]{24}$/))
-    .allow(null),
-  parentTask: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, "")
+    })
 });
 
 const updateTaskSchema = Joi.object({
@@ -76,22 +58,7 @@ const updateTaskSchema = Joi.object({
     .allow(null),
   assignee: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null),
-  taskType: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null),
-  sprint: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  epic: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, ""),
-  labels: Joi.array()
-    .items(Joi.string().regex(/^[0-9a-fA-F]{24}$/))
-    .allow(null),
-  parentTask: Joi.string()
-    .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null, "")
+    .allow(null)
 });
 
 module.exports = {

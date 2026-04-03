@@ -16,11 +16,6 @@ const taskSchema = new mongoose.Schema(
       enum: ["TODO", "IN_PROGRESS", "REVIEW", "DONE"],
       default: "TODO",
     },
-    taskType: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "TaskType",
-      default: null,
-    },
     priority: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
@@ -44,4 +39,29 @@ const taskSchema = new mongoose.Schema(
     },
     assignee: {
       type: mongoose.Schema.Types.ObjectId,
-     
+      ref: "User",
+    },
+    creator: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    sprint: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Sprint",
+      default: null,
+    },
+    epic: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Epic",
+      default: null,
+    },
+  },
+  {
+    timestamps: true,
+    versionKey: false,
+  }
+);
+
+module.exports = mongoose.model("Task", taskSchema);
+>>>>>>> parent of 6df780d (feat: add report)
