@@ -60,8 +60,7 @@ const taskSchema = new mongoose.Schema(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
 module.exports = mongoose.model("Task", taskSchema);
->>>>>>> parent of 6df780d (feat: add report)
