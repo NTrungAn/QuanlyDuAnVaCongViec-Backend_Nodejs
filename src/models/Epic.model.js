@@ -26,17 +26,20 @@ const epicSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    tasks: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Task',
-      },
-    ],
   },
   {
     timestamps: true,
     versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
+
+// Virtual populate cho các Task thuộc Epic này
+epicSchema.virtual('tasks', {
+  ref: 'Task',
+  localField: '_id',
+  foreignField: 'epic',
+});
 
 module.exports = mongoose.models.Epic || mongoose.model('Epic', epicSchema);

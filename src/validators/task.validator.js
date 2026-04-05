@@ -17,8 +17,7 @@ const createTaskSchema = Joi.object({
     .allow('', null)
     .trim(),
   status: Joi.string()
-    .valid("TODO", "IN_PROGRESS", "REVIEW", "DONE")
-    .default("TODO"),
+    .allow('', null),
   priority: Joi.string()
     .valid("LOW", "MEDIUM", "HIGH", "URGENT")
     .default("MEDIUM"),
@@ -34,10 +33,25 @@ const createTaskSchema = Joi.object({
     }),
   assignee: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
+    .allow(null, "")
     .messages({
       'string.pattern.base': 'ID người thực hiện không hợp lệ'
-    })
+    }),
+  sprint: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  epic: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  taskType: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  labels: Joi.array().items(
+    Joi.string().regex(/^[0-9a-fA-F]{24}$/)
+  ).default([]),
+  parentTask: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
 });
 
 const updateTaskSchema = Joi.object({
@@ -50,15 +64,30 @@ const updateTaskSchema = Joi.object({
     .allow('', null)
     .trim(),
   status: Joi.string()
-    .valid("TODO", "IN_PROGRESS", "REVIEW", "DONE"),
+    .allow('', null),
   priority: Joi.string()
     .valid("LOW", "MEDIUM", "HIGH", "URGENT"),
   dueDate: Joi.date()
     .iso()
-    .allow(null),
+    .allow(null, ""),
   assignee: Joi.string()
     .regex(/^[0-9a-fA-F]{24}$/)
-    .allow(null)
+    .allow(null, ""),
+  sprint: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  epic: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  taskType: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
+  labels: Joi.array().items(
+    Joi.string().regex(/^[0-9a-fA-F]{24}$/)
+  ),
+  parentTask: Joi.string()
+    .regex(/^[0-9a-fA-F]{24}$/)
+    .allow(null, ""),
 });
 
 module.exports = {

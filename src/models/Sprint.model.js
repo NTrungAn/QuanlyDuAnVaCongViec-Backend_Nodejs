@@ -34,17 +34,20 @@ const sprintSchema = new mongoose.Schema(
       ref: 'User',
       required: true,
     },
-    tasks: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Task',
-      },
-    ],
   },
   {
     timestamps: true,
     versionKey: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   },
 );
+
+// Virtual populate cho các Task thuộc Sprint này
+sprintSchema.virtual('tasks', {
+  ref: 'Task',
+  localField: '_id',
+  foreignField: 'sprint',
+});
 
 module.exports = mongoose.model('Sprint', sprintSchema);

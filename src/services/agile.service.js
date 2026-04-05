@@ -106,18 +106,8 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
     throw new Error('Task không thuộc dự án này');
   }
 
-  if (task.sprint && task.sprint.toString() !== sprintId.toString()) {
-    await Sprint.findByIdAndUpdate(task.sprint, {
-      $pull: { tasks: task._id },
-    });
-  }
-
   task.sprint = sprint._id;
   await task.save();
-
-  await Sprint.findByIdAndUpdate(sprint._id, {
-    $addToSet: { tasks: task._id },
-  });
 
   const updatedSprint = await Sprint.findById(sprint._id).populate(
     'tasks',
@@ -166,18 +156,8 @@ const linkTaskToEpic = async (projectId, epicId, taskId, userId) => {
     throw new Error('Task không thuộc dự án này');
   }
 
-  if (task.epic && task.epic.toString() !== epicId.toString()) {
-    await Epic.findByIdAndUpdate(task.epic, {
-      $pull: { tasks: task._id },
-    });
-  }
-
   task.epic = epic._id;
   await task.save();
-
-  await Epic.findByIdAndUpdate(epic._id, {
-    $addToSet: { tasks: task._id },
-  });
 
   const updatedEpic = await Epic.findById(epic._id).populate(
     'tasks',

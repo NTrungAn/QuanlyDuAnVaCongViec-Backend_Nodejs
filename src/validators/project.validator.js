@@ -18,11 +18,11 @@ const createProjectSchema = Joi.object({
     .trim(),
   startDate: Joi.date()
     .iso()
-    .allow(null),
+    .allow('', null),
   endDate: Joi.date()
     .iso()
     .min(Joi.ref('startDate'))
-    .allow(null)
+    .allow('', null)
     .messages({
       'date.min': 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu'
     }),
@@ -47,11 +47,11 @@ const updateProjectSchema = Joi.object({
     .trim(),
   startDate: Joi.date()
     .iso()
-    .allow(null),
+    .allow('', null),
   endDate: Joi.date()
     .iso()
     .min(Joi.ref('startDate'))
-    .allow(null)
+    .allow('', null)
     .messages({
       'date.min': 'Ngày kết thúc phải sau hoặc bằng ngày bắt đầu'
     }),

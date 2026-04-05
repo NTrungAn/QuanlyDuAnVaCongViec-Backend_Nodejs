@@ -1,6 +1,8 @@
 const Project = require("../models/Project.model");
 const User = require("../models/User.model");
 const notificationService = require("./notification.service");
+const workflowService = require("./workflow.service");
+const { includesId, isSameId } = require("../utils/id.util");
 
 const userResponse = (user) => {
   if (!user) return null;
@@ -33,23 +35,35 @@ const createProject = async (projectData, userId) => {
     owner: userId,
     members: [userId], // Mặc định chủ sở hữu là thành viên đầu tiên
   });
+
+  // Tạo workflow và các trạng thái mặc định
+  await workflowService.createDefaultWorkflow(project);
+
   return projectResponse(project);
 };
 
-const getAllProjects = async (query = {}) => {
+const getAllProjects = async (userId) => {
+  const query = userId ? { members: userId } : {};
   const projects = await Project.find(query)
     .populate("owner", "fullName email avatarUrl")
     .populate("members", "fullName email avatarUrl");
   return projects.map(projectResponse);
 };
 
-const getProjectById = async (projectId) => {
+const getProjectById = async (projectId, userId) => {
   const project = await Project.findById(projectId)
     .populate("owner", "fullName email avatarUrl")
     .populate("members", "fullName email avatarUrl");
+
   if (!project) {
     throw new Error("Dự án không tồn tại");
   }
+
+  // Bảo mật: Chỉ thành viên mới được xem chi tiết dự án
+  if (!includesId(project.members, userId)) {
+    throw new Error("Bạn không có quyền xem dự án này");
+  }
+
   return projectResponse(project);
 };
 
@@ -60,7 +74,7 @@ const updateProject = async (projectId, updateData, userId) => {
   }
 
   // Chỉ owner mới có quyền update thông tin dự án
-  if (project.owner.toString() !== userId.toString()) {
+  if (!isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền cập nhật dự án này");
   }
 
@@ -76,7 +90,7 @@ const deleteProject = async (projectId, userId) => {
   }
 
   // Chỉ owner mới có quyền xóa dự án
-  if (project.owner.toString() !== userId.toString()) {
+  if (!isSameId(project.owner, userId)) {
     throw new Error("Bạn không có quyền xóa dự án này");
   }
 
@@ -90,7 +104,7 @@ const addMember = async (projectId, memberId, ownerId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (project.owner.toString() !== ownerId.toString()) {
+  if (!isSameId(project.owner, ownerId)) {
     throw new Error("Chỉ chủ sở hữu mới có quyền thêm thành viên");
   }
 
@@ -99,7 +113,7 @@ const addMember = async (projectId, memberId, ownerId) => {
     throw new Error("Người dùng không tồn tại");
   }
 
-  if (project.members.some((m) => m.toString() === memberId.toString())) {
+  if (includesId(project.members, memberId)) {
     throw new Error("Người dùng đã là thành viên của dự án");
   }
 
@@ -124,16 +138,16 @@ const removeMember = async (projectId, memberId, ownerId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (project.owner.toString() !== ownerId.toString()) {
+  if (!isSameId(project.owner, ownerId)) {
     throw new Error("Chỉ chủ sở hữu mới có quyền xóa thành viên");
   }
 
-  if (memberId.toString() === project.owner.toString()) {
+  if (isSameId(memberId, project.owner)) {
     throw new Error("Không thể xóa chủ sở hữu khỏi dự án");
   }
 
   project.members = project.members.filter(
-    (m) => m.toString() !== memberId.toString(),
+    (m) => !isSameId(m, memberId),
   );
   await project.save();
   return projectResponse(project);
