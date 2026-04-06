@@ -27,5 +27,4 @@ const attachmentSchema = new mongoose.Schema(
   }
 );
 
-module.exports =
-  mongoose.models.Attachment || mongoose.model("Attachment", attachmentSchema);
+module.exports = mongoose.model("Attachment", attachmentSchema);

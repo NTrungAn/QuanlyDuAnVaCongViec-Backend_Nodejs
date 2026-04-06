@@ -16,6 +16,11 @@ const taskSchema = new mongoose.Schema(
       enum: ["TODO", "IN_PROGRESS", "REVIEW", "DONE"],
       default: "TODO",
     },
+    taskType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TaskType",
+      default: null,
+    },
     priority: {
       type: String,
       enum: ["LOW", "MEDIUM", "HIGH", "URGENT"],
@@ -56,11 +61,34 @@ const taskSchema = new mongoose.Schema(
       ref: "Epic",
       default: null,
     },
+    parentTask: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
+      default: null,
+    },
+    labels: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Label",
+      },
+    ],
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
+    isArchived: {
+      type: Boolean,
+      default: false,
+    },
+    commentsCount: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
     versionKey: false,
-  },
+  }
 );
 
 module.exports = mongoose.model("Task", taskSchema);

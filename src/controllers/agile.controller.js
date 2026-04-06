@@ -1,4 +1,4 @@
-const agileService = require("../services/agile.service");
+const agileService = require('../services/agile.service');
 
 const createSprint = async (req, res) => {
   try {
@@ -120,6 +120,44 @@ const deleteSprint = async (req, res) => {
   }
 };
 
+const getBacklogData = async (req, res) => {
+  try {
+    const data = await agileService.getBacklogData(
+      req.params.projectId,
+      req.user._id,
+    );
+    return res.status(200).json(data);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const updateTaskOrder = async (req, res) => {
+  try {
+    const result = await agileService.updateTaskOrder(
+      req.params.projectId,
+      req.body.updates,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const startSprint = async (req, res) => {
+  try {
+    const result = await agileService.startSprint(
+      req.params.projectId,
+      req.params.sprintId,
+      req.user._id,
+    );
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createSprint,
   getSprintsByProject,
@@ -130,4 +168,7 @@ module.exports = {
   deleteEpic,
   updateSprint,
   deleteSprint,
+  getBacklogData,
+  updateTaskOrder,
+  startSprint,
 };

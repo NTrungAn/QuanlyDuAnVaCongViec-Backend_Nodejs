@@ -1,9 +1,12 @@
 require('dotenv').config();
+const http = require('http');
+const { Server } = require('socket.io');
 const app = require('./app');
 const connectDB = require('./config/db');
 const User = require('./models/User.model');
 const Role = require('./models/Role.model');
 const bcrypt = require('bcrypt');
+const { verifyAccessToken } = require('./utils/jwt.util');
 
 const PORT = process.env.PORT || 3000;
 
@@ -40,7 +43,48 @@ async function seedData() {
   try {
     await connectDB();
     await seedData();
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+
+    const server = http.createServer(app);
+    const io = new Server(server, {
+      cors: {
+        origin: '*',
+        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      },
+    });
+
+    io.use(async (socket, next) => {
+      try {
+        const token = socket.handshake.auth?.token;
+        if (!token) {
+          return next(new Error('Unauthorized'));
+        }
+
+        const decoded = verifyAccessToken(token);
+        const user = await User.findById(decoded.id);
+        if (!user) {
+          return next(new Error('Unauthorized'));
+        }
+
+        socket.user = user;
+        next();
+      } catch (error) {
+        next(new Error('Unauthorized'));
+      }
+    });
+
+    io.on('connection', (socket) => {
+      const userId = socket.user?._id?.toString();
+      if (userId) {
+        socket.join(`user:${userId}`);
+      }
+
+      socket.on('disconnect', () => {});
+    });
+
+    app.set('io', io);
+    global.io = io;
+
+    server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
   } catch (error) {
     console.error('Server failed to start:', error.message);
     process.exit(1);
