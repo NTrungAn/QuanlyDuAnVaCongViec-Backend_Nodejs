@@ -9,16 +9,40 @@ const WorkflowStep = require("../models/WorkflowStep.model");
 const createDefaultWorkflow = async (project) => {
   // 1. Tạo các trạng thái mặc định
   const defaultStatuses = [
-    { name: "Cần làm", category: "TODO", color: "#F4F5F7", order: 0, isDefault: true },
-    { name: "Đang làm", category: "IN_PROGRESS", color: "#EAE6FF", order: 1, isDefault: true },
-    { name: "Chờ duyệt", category: "IN_PROGRESS", color: "#FFFAE6", order: 2, isDefault: true },
-    { name: "Hoàn thành", category: "DONE", color: "#E3FCEF", order: 3, isDefault: true },
+    {
+      name: "Cần làm",
+      category: "TODO",
+      color: "#F4F5F7",
+      order: 0,
+      isDefault: true,
+    },
+    {
+      name: "Đang làm",
+      category: "IN_PROGRESS",
+      color: "#EAE6FF",
+      order: 1,
+      isDefault: true,
+    },
+    {
+      name: "Chờ duyệt",
+      category: "IN_PROGRESS",
+      color: "#FFFAE6",
+      order: 2,
+      isDefault: true,
+    },
+    {
+      name: "Hoàn thành",
+      category: "DONE",
+      color: "#E3FCEF",
+      order: 3,
+      isDefault: true,
+    },
   ];
 
   const createdStatuses = await Promise.all(
     defaultStatuses.map((status) =>
-      TaskStatus.create({ ...status, project: project._id })
-    )
+      TaskStatus.create({ ...status, project: project._id }),
+    ),
   );
 
   // 2. Tạo Workflow chính
@@ -30,7 +54,6 @@ const createDefaultWorkflow = async (project) => {
   // 3. Tạo các bước chuyển đổi mặc định (Tuyến tính: 0 -> 1 -> 2 -> 3)
   // Và cho phép quay lại từ bất kỳ đâu về "Cần làm" hoặc "Đang làm" (tùy chọn đơn giản)
   const steps = [];
-  
 
   // Chuyển tiếp: 0->1, 1->2, 2->3
   for (let i = 0; i < createdStatuses.length - 1; i++) {
@@ -60,25 +83,79 @@ const createDefaultWorkflow = async (project) => {
  */
 const validateTransition = async (projectId, fromStatusName, toStatusName) => {
   const workflow = await Workflow.findOne({ project: projectId });
-  if (!workflow) return true; // Nếu không có workflow thì cho phép tất cả (fallback)
+  if (!workflow) {
+    console.warn(
+      `[validateTransition] No workflow found for project=${projectId}; denying transitions by default.`,
+    );
+    return false; // Nếu không có workflow thì từ chối chuyển
+  }
 
-  // Map các giá trị cũ sang giá trị mới nếu cần
+  // Try to be tolerant: accept legacy tokens and common english names,
+  // and perform case-insensitive matches to avoid false negatives caused
+  // by capitalization or small variations.
   const legacyMap = {
-    "TODO": "Cần làm",
-    "IN_PROGRESS": "Đang làm",
-    "REVIEW": "Chờ duyệt",
-    "DONE": "Hoàn thành"
+    TODO: "Cần làm",
+    IN_PROGRESS: "Đang làm",
+    REVIEW: "Chờ duyệt",
+    DONE: "Hoàn thành",
   };
 
-  const getMappedName = (name) => legacyMap[name] || name;
+  const englishMap = {
+    todo: "Cần làm",
+    "in progress": "Đang làm",
+    in_progress: "Đang làm",
+    inprogress: "Đang làm",
+    doing: "Đang làm",
+    review: "Chờ duyệt",
+    done: "Hoàn thành",
+    completed: "Hoàn thành",
+  };
 
-  const normalizedFrom = getMappedName(fromStatusName).trim();
-  const normalizedTo = getMappedName(toStatusName).trim();
+  const normalizeMap = (name) => {
+    if (!name) return name;
+    const trimmed = String(name).trim();
+    const upper = trimmed.toUpperCase();
+    if (legacyMap[upper]) return legacyMap[upper];
+    const lower = trimmed.toLowerCase();
+    if (englishMap[lower]) return englishMap[lower];
+    return trimmed;
+  };
 
-  const fromStatus = await TaskStatus.findOne({ project: projectId, name: normalizedFrom });
-  const toStatus = await TaskStatus.findOne({ project: projectId, name: normalizedTo });
+  const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  if (!fromStatus || !toStatus) return false;
+  const mappedFrom = normalizeMap(fromStatusName);
+  const mappedTo = normalizeMap(toStatusName);
+
+  // Case-insensitive lookup for statuses
+  const fromStatus = await TaskStatus.findOne({
+    project: projectId,
+    name: { $regex: `^${escapeRegex(mappedFrom)}$`, $options: "i" },
+  });
+  const toStatus = await TaskStatus.findOne({
+    project: projectId,
+    name: { $regex: `^${escapeRegex(mappedTo)}$`, $options: "i" },
+  });
+
+  // If we cannot resolve status documents, log and DENY the transition.
+  // Being permissive here allowed transitions bypassing configured workflow rules.
+  if (!fromStatus || !toStatus) {
+    console.warn(
+      `[validateTransition] Unable to resolve statuses for project=${projectId}, from="${fromStatusName}" -> to="${toStatusName}". Denying transition.`,
+    );
+    return false;
+  }
+
+  // If no steps configured for this workflow, deny transitions by default
+  // — administrator must explicitly configure allowed transitions.
+  const stepsCount = await WorkflowStep.countDocuments({
+    workflow: workflow._id,
+  });
+  if (!stepsCount) {
+    console.warn(
+      `[validateTransition] No workflow steps configured for workflow=${workflow._id}; denying transitions by default.`,
+    );
+    return false;
+  }
 
   const step = await WorkflowStep.findOne({
     workflow: workflow._id,
@@ -95,19 +172,48 @@ module.exports = {
 
   // Task Status CRUD
   getStatusesByProject: async (projectId) => {
-    return TaskStatus.find({ project: projectId }).sort({ order: 1 });
+    // Fetch statuses and ensure deterministic ordering.
+    // If `order` is missing we treat it as very large so it appears at the end.
+    const statuses = await TaskStatus.find({ project: projectId }).lean();
+    statuses.sort((a, b) => {
+      const ao =
+        typeof a.order === "number" ? a.order : Number.MAX_SAFE_INTEGER;
+      const bo =
+        typeof b.order === "number" ? b.order : Number.MAX_SAFE_INTEGER;
+      if (ao !== bo) return ao - bo;
+      if (a.createdAt && b.createdAt)
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      return (a.name || "").localeCompare(b.name || "");
+    });
+    return statuses;
   },
 
   createStatus: async (projectId, statusData) => {
-    return TaskStatus.create({ ...statusData, project: projectId });
+    // If client did not provide an `order`, append to the end (max order + 1)
+    const mongoose = require("mongoose");
+    const agg = await TaskStatus.aggregate([
+      { $match: { project: new mongoose.Types.ObjectId(projectId) } },
+      { $group: { _id: null, maxOrder: { $max: "$order" } } },
+    ]);
+    const maxOrder = agg && agg.length > 0 ? agg[0].maxOrder : undefined;
+    const nextOrder = typeof maxOrder === "number" ? maxOrder + 1 : 0;
+
+    const payload = { ...statusData, project: projectId };
+    if (payload.order === undefined || payload.order === null) {
+      payload.order = nextOrder;
+    }
+
+    return TaskStatus.create(payload);
   },
 
   updateStatus: async (statusId, updateData) => {
-    return TaskStatus.findByIdAndUpdate(statusId, updateData, { returnDocument: 'after' });
+    return TaskStatus.findByIdAndUpdate(statusId, updateData, {
+      returnDocument: "after",
+    });
   },
 
   deleteStatus: async (statusId) => {
-    // Cần kiểm tra xem có task nào đang dùng status này không? 
+    // Cần kiểm tra xem có task nào đang dùng status này không?
     // Tạm thời cho xóa, nhưng thực tế nên có bước migrate task.
     return TaskStatus.findByIdAndDelete(statusId);
   },
@@ -118,7 +224,11 @@ module.exports = {
   },
 
   updateWorkflow: async (workflowId, name) => {
-    return Workflow.findByIdAndUpdate(workflowId, { name }, { returnDocument: 'after' });
+    return Workflow.findByIdAndUpdate(
+      workflowId,
+      { name },
+      { returnDocument: "after" },
+    );
   },
 
   // Workflow Step CRUD
@@ -145,9 +255,11 @@ module.exports = {
     await Promise.all([
       TaskStatus.deleteMany({ project: projectId }),
       Workflow.deleteMany({ project: projectId }),
-      WorkflowStep.deleteMany({ 
-        workflow: { $in: await Workflow.find({ project: projectId }).distinct("_id") } 
-      })
+      WorkflowStep.deleteMany({
+        workflow: {
+          $in: await Workflow.find({ project: projectId }).distinct("_id"),
+        },
+      }),
     ]);
 
     // Tạo lại từ đầu
