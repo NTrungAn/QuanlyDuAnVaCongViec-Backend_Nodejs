@@ -142,7 +142,9 @@ const getTaskById = async (taskId, userId) => {
 };
 
 const updateTask = async (taskId, updateData, userId) => {
-  const task = await Task.findById(taskId).populate("project");
+  const task = await Task.findById(taskId)
+    .populate("project")
+    .populate("sprint", "status");
   if (!task) {
     throw new Error("Công việc không tồn tại");
   }
@@ -152,23 +154,75 @@ const updateTask = async (taskId, updateData, userId) => {
   const isOwner = isSameId(project.owner, userId);
   const isCreator = isSameId(task.creator, userId);
   const isAssignee = isSameId(task.assignee, userId);
+  console.log("[updateTask] permission check", {
+    userId: userId?.toString ? userId.toString() : userId,
+    taskId: taskId,
+    projectId: project._id?.toString ? project._id.toString() : project._id,
+    isOwner,
+    isCreator,
+    isAssignee,
+  });
 
-  if (!isOwner && !isCreator && !isAssignee) {
+  const isMember = includesId(project.members, userId);
+  console.log("[updateTask] membership check", { isMember });
+
+  if (!isOwner && !isCreator && !isAssignee && !isMember) {
     throw new Error("Bạn không có quyền cập nhật công việc này");
+  }
+
+  // If the user is a project member but not owner/creator/assignee,
+  // allow only limited updates (status changes). This prevents members
+  // from changing sensitive fields while letting them update status in Backlog.
+  if (!isOwner && !isCreator && !isAssignee && isMember) {
+    const allowedForMembers = ["status"];
+    const forbidden = Object.keys(updateData || {}).filter(
+      (k) => !allowedForMembers.includes(k),
+    );
+    if (forbidden.length) {
+      throw new Error(
+        `Bạn không có quyền cập nhật các trường: ${forbidden.join(", ")}`,
+      );
+    }
   }
 
   // Kiểm tra Workflow nếu có thay đổi trạng thái
   if (updateData.status && updateData.status !== task.status) {
-    const isValidTransition = await workflowService.validateTransition(
-      project._id,
-      task.status,
-      updateData.status,
-    );
+    console.log("[updateTask] status change attempt", {
+      userId: userId?.toString ? userId.toString() : userId,
+      taskId,
+      from: task.status,
+      to: updateData.status,
+      projectId: project._id?.toString ? project._id.toString() : project._id,
+      sprint: task.sprint ? task.sprint.status : null,
+    });
 
-    if (!isValidTransition) {
-      throw new Error(
-        `Không được phép chuyển từ "${task.status}" sang "${updateData.status}" theo quy trình của dự án.`,
+    // If the task is in Backlog (no sprint) or the sprint is not ACTIVE,
+    // allow status changes without enforcing workflow transitions.
+    const inActiveSprint = task.sprint && task.sprint.status === "ACTIVE";
+    if (!inActiveSprint) {
+      console.log(
+        "[updateTask] skipping workflow validation (backlog or non-active sprint)",
       );
+    } else {
+      let isValidTransition = false;
+      try {
+        isValidTransition = await workflowService.validateTransition(
+          project._id,
+          task.status,
+          updateData.status,
+        );
+        console.log("[updateTask] validateTransition result", {
+          isValidTransition,
+        });
+      } catch (err) {
+        console.error("[updateTask] validateTransition error", err);
+      }
+
+      if (!isValidTransition) {
+        throw new Error(
+          `Không được phép chuyển từ "${task.status}" sang "${updateData.status}" theo quy trình của dự án.`,
+        );
+      }
     }
   }
 
