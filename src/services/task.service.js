@@ -170,6 +170,16 @@ const updateTask = async (taskId, updateData, userId) => {
     throw new Error("Bạn không có quyền cập nhật công việc này");
   }
 
+  // If this update originates from a drag-and-drop action, enforce stricter
+  // permission: only owner, creator or assignee may perform drag-drop moves.
+  if (updateData && updateData.viaDrag) {
+    if (!isOwner && !isCreator && !isAssignee) {
+      throw new Error("Bạn không có quyền kéo-thả công việc này");
+    }
+    // Remove internal flag before applying updates
+    delete updateData.viaDrag;
+  }
+
   // If the user is a project member but not owner/creator/assignee,
   // allow only limited updates (status changes). This prevents members
   // from changing sensitive fields while letting them update status in Backlog.
