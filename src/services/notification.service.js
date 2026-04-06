@@ -1,4 +1,5 @@
 const Notification = require("../models/Notification.model");
+const { sendNotification } = require("../socket");
 
 const notificationResponse = (notification) => ({
   id: notification._id,
@@ -13,7 +14,14 @@ const notificationResponse = (notification) => ({
 
 const createNotification = async (data) => {
   const notification = await Notification.create(data);
-  return notificationResponse(notification);
+  const response = notificationResponse(notification);
+  
+  // Gửi realtime qua socket
+  // Cần populate thêm sender để frontend hiển thị tên và avatar mịn hơn
+  const populated = await Notification.findById(notification._id).populate("sender", "fullName avatarUrl");
+  sendNotification(notification.recipient, notificationResponse(populated));
+  
+  return response;
 };
 
 const getUserNotifications = async (userId) => {

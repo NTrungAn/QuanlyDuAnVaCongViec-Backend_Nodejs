@@ -1,10 +1,10 @@
-const Epic = require('../models/epic.model');
+const Epic = require('../models/Epic.model');
 
 exports.getEpicsByProject = async (req, res) => {
   try {
     const { projectId } = req.params;
 
-    const epics = await Epic.find({ project: projectId });
+    const epics = await Epic.find({ project: projectId }).populate('tasks', 'title status priority');
 
     res.status(200).json({
       success: true,

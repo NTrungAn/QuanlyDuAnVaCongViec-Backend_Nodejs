@@ -23,9 +23,8 @@ const getTaskTypesByProject = async (projectId, userId) => {
 const createTaskType = async (projectId, data, userId) => {
   const project = await ensureProjectAccess(projectId, userId);
 
-  if (!isSameId(project.owner, userId)) {
-    throw new Error('Chỉ chủ dự án mới được tạo loại công việc mới');
-  }
+  // Cho phép cả chủ dự án và thành viên tạo loại công việc mới
+  // (Đã được kiểm tra quyền ở ensureProjectAccess)
 
   return TaskType.create({
     ...data,
@@ -36,9 +35,7 @@ const createTaskType = async (projectId, data, userId) => {
 const updateTaskType = async (projectId, typeId, data, userId) => {
   const project = await ensureProjectAccess(projectId, userId);
 
-  if (!isSameId(project.owner, userId)) {
-    throw new Error('Chỉ chủ dự án mới được cập nhật loại công việc');
-  }
+  // Cho phép cả thành viên cập nhật loại công việc
 
   const taskType = await TaskType.findOne({ _id: typeId, project: projectId });
   if (!taskType) {
@@ -53,9 +50,7 @@ const updateTaskType = async (projectId, typeId, data, userId) => {
 const deleteTaskType = async (projectId, typeId, userId) => {
   const project = await ensureProjectAccess(projectId, userId);
 
-  if (!isSameId(project.owner, userId)) {
-    throw new Error('Chỉ chủ dự án mới được xóa loại công việc');
-  }
+  // Cho phép cả thành viên xóa loại công việc
 
   const taskType = await TaskType.findOneAndDelete({
     _id: typeId,

@@ -1,6 +1,9 @@
 const Task = require("../models/Task.model");
 const Project = require("../models/Project.model");
+const Attachment = require("../models/Attachment.model");
 const notificationService = require("./notification.service");
+const workflowService = require("./workflow.service");
+const { includesId, isSameId } = require("../utils/id.util");
 
 const taskResponse = (task) => ({
   id: task._id,
@@ -14,6 +17,11 @@ const taskResponse = (task) => ({
   creator: task.creator,
   sprint: task.sprint,
   epic: task.epic,
+  taskType: task.taskType,
+  labels: task.labels,
+  parentTask: task.parentTask,
+  storyPoint: task.storyPoint,
+  order: task.order,
   createdAt: task.createdAt,
   updatedAt: task.updatedAt,
 });
@@ -25,8 +33,23 @@ const createTask = async (taskData, userId) => {
   }
 
   // Kiểm tra xem user có phải là thành viên của dự án không
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId)) {
     throw new Error("Bạn không có quyền tạo công việc trong dự án này");
+  }
+
+  // Kiểm tra trạng thái nếu có gửi lên (Tùy chọn)
+  if (taskData.status) {
+    const statuses = await workflowService.getStatusesByProject(taskData.project);
+    const isValidStatus = statuses.some(s => s.name === taskData.status);
+    if (!isValidStatus) {
+      throw new Error(`Trạng thái "${taskData.status}" không hợp lệ cho dự án này.`);
+    }
+  } else {
+    // Nếu không gửi, lấy trạng thái mặc định đầu tiên của dự án
+    const statuses = await workflowService.getStatusesByProject(taskData.project);
+    if (statuses.length > 0) {
+      taskData.status = statuses[0].name;
+    }
   }
 
   const task = await Task.create({
@@ -54,15 +77,17 @@ const getTasksByProject = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId)) {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId })
+  const tasks = await Task.find({ project: projectId, parentTask: null })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
-    .populate("epic", "name status");
+    .populate("epic", "name status")
+    .populate("taskType", "name icon color")
+    .populate("labels", "name color");
   return tasks.map(taskResponse);
 };
 
@@ -72,7 +97,10 @@ const getTaskById = async (taskId, userId) => {
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("sprint", "name status startDate endDate")
-    .populate("epic", "name status");
+    .populate("epic", "name status")
+    .populate("taskType", "name icon color")
+    .populate("labels", "name color")
+    .populate("parentTask", "title status");
 
   if (!task) {
     throw new Error("Công việc không tồn tại");
@@ -80,7 +108,7 @@ const getTaskById = async (taskId, userId) => {
 
   // Kiểm tra quyền truy cập thông qua project members
   const project = task.project;
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId)) {
     throw new Error("Bạn không có quyền xem công việc này");
   }
 
@@ -95,13 +123,25 @@ const updateTask = async (taskId, updateData, userId) => {
 
   const project = task.project;
   // Người có quyền update: Chủ sở hữu dự án, Người tạo task, hoặc Người được giao task
-  const isOwner = project.owner.toString() === userId.toString();
-  const isCreator = task.creator.toString() === userId.toString();
-  const isAssignee =
-    task.assignee && task.assignee.toString() === userId.toString();
+  const isOwner = isSameId(project.owner, userId);
+  const isCreator = isSameId(task.creator, userId);
+  const isAssignee = isSameId(task.assignee, userId);
 
   if (!isOwner && !isCreator && !isAssignee) {
     throw new Error("Bạn không có quyền cập nhật công việc này");
+  }
+
+  // Kiểm tra Workflow nếu có thay đổi trạng thái
+  if (updateData.status && updateData.status !== task.status) {
+    const isValidTransition = await workflowService.validateTransition(
+      project._id,
+      task.status,
+      updateData.status
+    );
+    
+    if (!isValidTransition) {
+      throw new Error(`Không được phép chuyển từ "${task.status}" sang "${updateData.status}" theo quy trình của dự án.`);
+    }
   }
 
   const previousAssignee = task.assignee ? task.assignee.toString() : null;
@@ -136,8 +176,8 @@ const deleteTask = async (taskId, userId) => {
 
   const project = task.project;
   // Người có quyền xóa: Chủ sở hữu dự án hoặc Người tạo task
-  const isOwner = project.owner.toString() === userId.toString();
-  const isCreator = task.creator.toString() === userId.toString();
+  const isOwner = isSameId(project.owner, userId);
+  const isCreator = isSameId(task.creator, userId);
 
   if (!isOwner && !isCreator) {
     throw new Error("Bạn không có quyền xóa công việc này");
@@ -153,17 +193,122 @@ const getBacklogByProject = async (projectId, userId) => {
     throw new Error("Dự án không tồn tại");
   }
 
-  if (!project.members.includes(userId)) {
+  if (!includesId(project.members, userId)) {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId, sprint: null })
+  const tasks = await Task.find({ project: projectId, sprint: null, parentTask: null })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("epic", "name status")
+    .populate("taskType", "name icon color")
+    .populate("labels", "name color")
     .sort({ order: 1, createdAt: 1 });
 
   return tasks.map(taskResponse);
+};
+
+// --- Subtasks ---
+const createSubtask = async (parentTaskId, taskData, userId) => {
+  const parentTask = await Task.findById(parentTaskId);
+  if (!parentTask) {
+    throw new Error("Công việc cha không tồn tại");
+  }
+
+  const project = await Project.findById(parentTask.project);
+  if (!includesId(project.members, userId)) {
+    throw new Error("Bạn không có quyền tạo công việc con trong dự án này");
+  }
+
+  // Lấy trạng thái mặc định cho subtask nếu không gửi lên
+  let finalStatus = taskData.status || "Cần làm";
+  if (!taskData.status) {
+    const statuses = await workflowService.getStatusesByProject(parentTask.project);
+    if (statuses.length > 0) {
+      finalStatus = statuses[0].name;
+    }
+  }
+
+  const subtask = await Task.create({
+    ...taskData,
+    status: finalStatus,
+    project: parentTask.project,
+    parentTask: parentTaskId,
+    creator: userId,
+  });
+
+  return taskResponse(subtask);
+};
+
+const getSubtasks = async (parentTaskId, userId) => {
+  const parentTask = await Task.findById(parentTaskId).populate("project");
+  if (!parentTask) {
+    throw new Error("Công việc không tồn tại");
+  }
+
+  if (!includesId(parentTask.project.members, userId)) {
+    throw new Error("Bạn không có quyền xem công việc con của task này");
+  }
+
+  const subtasks = await Task.find({ parentTask: parentTaskId })
+    .populate("assignee", "fullName email avatarUrl")
+    .populate("taskType", "name icon color")
+    .populate("labels", "name color");
+
+  return subtasks.map(taskResponse);
+};
+
+// --- Attachments ---
+const uploadAttachment = async (taskId, fileData, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) {
+    throw new Error("Công việc không tồn tại");
+  }
+
+  if (!includesId(task.project.members, userId)) {
+    throw new Error("Bạn không có quyền upload tài liệu cho công việc này");
+  }
+
+  const attachment = await Attachment.create({
+    task: taskId,
+    fileName: fileData.originalname,
+    fileUrl: `/uploads/attachments/${fileData.filename}`,
+    uploadedBy: userId,
+  });
+
+  return attachment;
+};
+
+const getAttachments = async (taskId, userId) => {
+  const task = await Task.findById(taskId).populate("project");
+  if (!task) {
+    throw new Error("Công việc không tồn tại");
+  }
+
+  if (!includesId(task.project.members, userId)) {
+    throw new Error("Bạn không có quyền xem tài liệu của công việc này");
+  }
+
+  return Attachment.find({ task: taskId }).populate(
+    "uploadedBy",
+    "fullName email"
+  );
+};
+
+const deleteAttachment = async (taskId, attachmentId, userId) => {
+  const attachment = await Attachment.findById(attachmentId);
+  if (!attachment) {
+    throw new Error("Tài liệu không tồn tại");
+  }
+
+  const task = await Task.findById(taskId).populate("project");
+  if (!includesId(task.project.members, userId)) {
+    throw new Error("Bạn không có quyền xóa tài liệu của công việc này");
+  }
+
+  await Attachment.findByIdAndDelete(attachmentId);
+  // Lưu ý: Trong thực tế nên xóa cả file vật lý trong thư mục uploads
+  return { message: "Xóa tài liệu thành công" };
 };
 
 module.exports = {
@@ -173,4 +318,9 @@ module.exports = {
   updateTask,
   deleteTask,
   getBacklogByProject,
+  createSubtask,
+  getSubtasks,
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment,
 };

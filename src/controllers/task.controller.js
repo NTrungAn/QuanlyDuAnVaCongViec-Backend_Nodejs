@@ -59,6 +59,61 @@ const getBacklogTasks = async (req, res) => {
   }
 };
 
+// --- Subtasks ---
+const createSubtask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const subtask = await taskService.createSubtask(taskId, req.body, req.user._id);
+    return res.status(201).json(subtask);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const getSubtasks = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const subtasks = await taskService.getSubtasks(taskId, req.user._id);
+    return res.status(200).json(subtasks);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+// --- Attachments ---
+const uploadAttachment = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Vui lòng chọn file để upload" });
+    }
+    const { taskId } = req.params;
+    const attachment = await taskService.uploadAttachment(taskId, req.file, req.user._id);
+    return res.status(201).json(attachment);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const getAttachments = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const attachments = await taskService.getAttachments(taskId, req.user._id);
+    return res.status(200).json(attachments);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
+const deleteAttachment = async (req, res) => {
+  try {
+    const { taskId, attachmentId } = req.params;
+    const result = await taskService.deleteAttachment(taskId, attachmentId, req.user._id);
+    return res.status(200).json(result);
+  } catch (error) {
+    return res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   createTask,
   getTasksByProject,
@@ -66,4 +121,9 @@ module.exports = {
   updateTask,
   deleteTask,
   getBacklogTasks,
+  createSubtask,
+  getSubtasks,
+  uploadAttachment,
+  getAttachments,
+  deleteAttachment,
 };

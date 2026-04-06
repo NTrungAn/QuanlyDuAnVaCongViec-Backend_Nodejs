@@ -13,8 +13,7 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["TODO", "IN_PROGRESS", "REVIEW", "DONE"],
-      default: "TODO",
+      default: "Cần làm", // Tên mặc định mới khớp với Workflow mặc định
     },
     priority: {
       type: String,
@@ -54,6 +53,22 @@ const taskSchema = new mongoose.Schema(
     epic: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Epic",
+      default: null,
+    },
+    taskType: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "TaskType",
+      default: null,
+    },
+    labels: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Label",
+      },
+    ],
+    parentTask: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Task",
       default: null,
     },
   },

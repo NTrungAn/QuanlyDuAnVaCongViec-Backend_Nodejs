@@ -5,7 +5,14 @@ const User = require('./models/User.model');
 const Role = require('./models/Role.model');
 const bcrypt = require('bcrypt');
 
+const http = require('http');
+const { initSocket } = require('./socket');
+
 const PORT = process.env.PORT || 3000;
+const server = http.createServer(app);
+
+// Khởi tạo Socket.io
+initSocket(server);
 
 async function seedData() {
   try {
@@ -40,7 +47,7 @@ async function seedData() {
   try {
     await connectDB();
     await seedData();
-    app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+    server.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
   } catch (error) {
     console.error('Server failed to start:', error.message);
     process.exit(1);
