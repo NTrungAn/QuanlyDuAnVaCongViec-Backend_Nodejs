@@ -9,6 +9,8 @@ const userResponse = (user) => ({
   fullName: user.fullName,
   avatarUrl: user.avatarUrl || null,
   roles: user.roles || [],
+  isActive: user.isActive,
+  createdAt: user.createdAt,
 });
 
 const register = async (data) => {
@@ -43,6 +45,7 @@ const register = async (data) => {
     id: user._id.toString(),
     email: user.email,
     fullName: user.fullName,
+    roles: user.roles || [],
   };
 };
 
@@ -63,6 +66,7 @@ const login = async ({ email, password }) => {
     id: user._id.toString(),
     email: user.email,
     fullName: user.fullName,
+    roles: user.roles || [],
   };
 };
 
@@ -94,13 +98,14 @@ const searchUsers = async (searchTerm) => {
   }));
 };
 
-const assignRole = async ({ userId, roleNames }) => {
+const assignRole = async ({ userId, roleNames, roles }) => {
   const user = await User.findById(userId);
   if (!user) {
     throw new Error("User not found");
   }
 
-  const normalizedRoles = roleNames.map((role) => role.toUpperCase());
+  const assignedRoles = roles || roleNames || [];
+  const normalizedRoles = assignedRoles.map((role) => role.toUpperCase());
 
   // Validate roles exist in Role collection
   const foundRoles = await Role.find({ name: { $in: normalizedRoles } });
@@ -114,14 +119,7 @@ const assignRole = async ({ userId, roleNames }) => {
   user.roles = normalizedRoles;
   await user.save();
 
-  return {
-    userId: user._id,
-    email: user.email,
-    fullName: user.fullName,
-    previousRoles,
-    newRoles: normalizedRoles,
-    message: "Successfully assigned roles to user",
-  };
+  return userResponse(user);
 };
 
 const updateUser = async (targetUserId, updateData) => {
@@ -132,6 +130,10 @@ const updateUser = async (targetUserId, updateData) => {
 
   if (updateData.fullName) user.fullName = updateData.fullName;
   if (updateData.avatarUrl) user.avatarUrl = updateData.avatarUrl;
+  if (updateData.password) {
+    const bcrypt = require("bcrypt");
+    user.password = await bcrypt.hash(updateData.password, 10);
+  }
 
   await user.save();
 
