@@ -1,7 +1,10 @@
-const Project = require('../models/Project.model');
-const Task = require('../models/Task.model');
-const Sprint = require('../models/Sprint.model');
-const Epic = require('../models/Epic.model');
+const Project = require("../models/Project.model");
+const Task = require("../models/Task.model");
+const Sprint = require("../models/Sprint.model");
+const Epic = require("../models/Epic.model");
+const TaskStatus = require("../models/TaskStatus.model");
+
+const escapeRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const hasProjectAccess = (project, userId) =>
   project.owner.toString() === userId.toString() ||
@@ -10,11 +13,11 @@ const hasProjectAccess = (project, userId) =>
 const ensureProjectAccess = async (projectId, userId) => {
   const project = await Project.findById(projectId);
   if (!project) {
-    throw new Error('Dự án không tồn tại');
+    throw new Error("Dự án không tồn tại");
   }
 
   if (!hasProjectAccess(project, userId)) {
-    throw new Error('Bạn không có quyền thao tác với dự án này');
+    throw new Error("Bạn không có quyền thao tác với dự án này");
   }
 
   return project;
@@ -76,7 +79,7 @@ const getSprintsByProject = async (projectId, userId) => {
   await ensureProjectAccess(projectId, userId);
 
   const sprints = await Sprint.find({ project: projectId })
-    .populate('tasks', 'title status priority')
+    .populate("tasks", "title status priority")
     .sort({ startDate: 1, createdAt: 1 });
 
   return sprints.map(sprintResponse);
@@ -91,31 +94,31 @@ const addTaskToSprint = async (projectId, sprintId, taskId, userId) => {
   ]);
 
   if (!sprint) {
-    throw new Error('Sprint không tồn tại');
+    throw new Error("Sprint không tồn tại");
   }
 
   if (!task) {
-    throw new Error('Task không tồn tại');
+    throw new Error("Task không tồn tại");
   }
 
   if (sprint.project.toString() !== projectId.toString()) {
-    throw new Error('Sprint không thuộc dự án này');
+    throw new Error("Sprint không thuộc dự án này");
   }
 
   if (task.project.toString() !== projectId.toString()) {
-    throw new Error('Task không thuộc dự án này');
+    throw new Error("Task không thuộc dự án này");
   }
 
   task.sprint = sprint._id;
   await task.save();
 
   const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
+    "tasks",
+    "title status priority",
   );
 
   return {
-    message: 'Thêm task vào sprint thành công',
+    message: "Thêm task vào sprint thành công",
     sprint: sprintResponse(updatedSprint),
   };
 };
@@ -141,31 +144,31 @@ const linkTaskToEpic = async (projectId, epicId, taskId, userId) => {
   ]);
 
   if (!epic) {
-    throw new Error('Epic không tồn tại');
+    throw new Error("Epic không tồn tại");
   }
 
   if (!task) {
-    throw new Error('Task không tồn tại');
+    throw new Error("Task không tồn tại");
   }
 
   if (epic.project.toString() !== projectId.toString()) {
-    throw new Error('Epic không thuộc dự án này');
+    throw new Error("Epic không thuộc dự án này");
   }
 
   if (task.project.toString() !== projectId.toString()) {
-    throw new Error('Task không thuộc dự án này');
+    throw new Error("Task không thuộc dự án này");
   }
 
   task.epic = epic._id;
   await task.save();
 
   const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
+    "tasks",
+    "title status priority",
   );
 
   return {
-    message: 'Gắn task vào epic thành công',
+    message: "Gắn task vào epic thành công",
     epic: epicResponse(updatedEpic),
   };
 };
@@ -175,19 +178,19 @@ const updateEpic = async (projectId, epicId, updateData, userId) => {
 
   const epic = await Epic.findById(epicId);
   if (!epic) {
-    throw new Error('Epic không tồn tại');
+    throw new Error("Epic không tồn tại");
   }
 
   if (epic.project.toString() !== projectId.toString()) {
-    throw new Error('Epic không thuộc dự án này');
+    throw new Error("Epic không thuộc dự án này");
   }
 
   Object.assign(epic, updateData);
   await epic.save();
 
   const updatedEpic = await Epic.findById(epic._id).populate(
-    'tasks',
-    'title status priority',
+    "tasks",
+    "title status priority",
   );
 
   return epicResponse(updatedEpic);
@@ -198,11 +201,11 @@ const deleteEpic = async (projectId, epicId, userId) => {
 
   const epic = await Epic.findById(epicId);
   if (!epic) {
-    throw new Error('Epic không tồn tại');
+    throw new Error("Epic không tồn tại");
   }
 
   if (epic.project.toString() !== projectId.toString()) {
-    throw new Error('Epic không thuộc dự án này');
+    throw new Error("Epic không thuộc dự án này");
   }
 
   // Detach all tasks from this epic
@@ -210,7 +213,7 @@ const deleteEpic = async (projectId, epicId, userId) => {
 
   await Epic.findByIdAndDelete(epicId);
 
-  return { message: 'Xóa epic thành công' };
+  return { message: "Xóa epic thành công" };
 };
 
 const updateSprint = async (projectId, sprintId, updateData, userId) => {
@@ -218,27 +221,46 @@ const updateSprint = async (projectId, sprintId, updateData, userId) => {
 
   const sprint = await Sprint.findById(sprintId);
   if (!sprint) {
-    throw new Error('Sprint không tồn tại');
+    throw new Error("Sprint không tồn tại");
   }
 
   if (sprint.project.toString() !== projectId.toString()) {
-    throw new Error('Sprint không thuộc dự án này');
+    throw new Error("Sprint không thuộc dự án này");
   }
 
   const oldStatus = sprint.status;
   Object.assign(sprint, updateData);
   await sprint.save();
 
-  if (oldStatus !== 'COMPLETED' && updateData.status === 'COMPLETED') {
+  if (oldStatus !== "COMPLETED" && updateData.status === "COMPLETED") {
+    // Determine which status names count as "done" for this project.
+    // Prefer statuses defined in TaskStatus with category 'DONE'.
+    let doneStatuses = await TaskStatus.find({
+      project: sprint.project,
+      category: "DONE",
+    }).lean();
+    let doneNames = (doneStatuses || []).map((s) => s.name).filter(Boolean);
+
+    // Fallback common tokens if no explicit DONE-category statuses exist.
+    if (!doneNames.length) {
+      doneNames = ["done", "completed", "hoàn thành", "hoan thanh"];
+    }
+
+    // Build $nor conditions to identify tasks whose status does NOT match any done-name (case-insensitive)
+    const norConditions = doneNames.map((n) => ({
+      status: { $regex: `^${escapeRegex(n)}$`, $options: "i" },
+    }));
+
+    // Update tasks: if task is in this sprint and its status does NOT match any done-names, detach it from sprint
     await Task.updateMany(
-      { sprint: sprint._id, status: { $ne: 'DONE' } },
-      { $set: { sprint: null } }
+      { sprint: sprint._id, $nor: norConditions },
+      { $set: { sprint: null } },
     );
   }
 
   const updatedSprint = await Sprint.findById(sprint._id).populate(
-    'tasks',
-    'title status priority',
+    "tasks",
+    "title status priority",
   );
 
   return sprintResponse(updatedSprint);
@@ -249,18 +271,18 @@ const deleteSprint = async (projectId, sprintId, userId) => {
 
   const sprint = await Sprint.findById(sprintId);
   if (!sprint) {
-    throw new Error('Sprint không tồn tại');
+    throw new Error("Sprint không tồn tại");
   }
 
   if (sprint.project.toString() !== projectId.toString()) {
-    throw new Error('Sprint không thuộc dự án này');
+    throw new Error("Sprint không thuộc dự án này");
   }
 
   await Task.updateMany({ sprint: sprint._id }, { $set: { sprint: null } });
 
   await Sprint.findByIdAndDelete(sprintId);
 
-  return { message: 'Xóa sprint thành công' };
+  return { message: "Xóa sprint thành công" };
 };
 
 module.exports = {

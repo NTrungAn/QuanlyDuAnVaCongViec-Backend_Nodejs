@@ -27,6 +27,14 @@ const taskResponse = (task) => ({
 });
 
 const createTask = async (taskData, userId) => {
+  console.log("[createTask] payload:", {
+    title: taskData.title,
+    project: taskData.project,
+    status: taskData.status,
+    sprint: taskData.sprint,
+    epic: taskData.epic,
+    assignee: taskData.assignee,
+  });
   const project = await Project.findById(taskData.project);
   if (!project) {
     throw new Error("Dự án không tồn tại");
@@ -37,18 +45,36 @@ const createTask = async (taskData, userId) => {
     throw new Error("Bạn không có quyền tạo công việc trong dự án này");
   }
 
-  // Kiểm tra trạng thái nếu có gửi lên (Tùy chọn)
+  console.log(
+    "[createTask] project members:",
+    (project.members || []).map((m) => m.toString()),
+  );
+  // Lấy danh sách trạng thái 1 lần để kiểm tra/thiết lập mặc định và debug
+  const statuses = await workflowService.getStatusesByProject(taskData.project);
+  try {
+    console.log(
+      "[createTask] statuses:",
+      (statuses || []).map((s) => s.name),
+    );
+  } catch (e) {
+    console.log("[createTask] statuses: (unable to map names)", statuses);
+  }
+
   if (taskData.status) {
-    const statuses = await workflowService.getStatusesByProject(taskData.project);
-    const isValidStatus = statuses.some(s => s.name === taskData.status);
+    const isValidStatus = statuses.some((s) => s.name === taskData.status);
     if (!isValidStatus) {
-      throw new Error(`Trạng thái "${taskData.status}" không hợp lệ cho dự án này.`);
+      throw new Error(
+        `Trạng thái "${taskData.status}" không hợp lệ cho dự án này.`,
+      );
     }
   } else {
-    // Nếu không gửi, lấy trạng thái mặc định đầu tiên của dự án
-    const statuses = await workflowService.getStatusesByProject(taskData.project);
     if (statuses.length > 0) {
       taskData.status = statuses[0].name;
+    } else {
+      taskData.status = "Cần làm";
+      console.warn(
+        "[createTask] No statuses defined for project, fallback to 'Cần làm'",
+      );
     }
   }
 
@@ -136,11 +162,13 @@ const updateTask = async (taskId, updateData, userId) => {
     const isValidTransition = await workflowService.validateTransition(
       project._id,
       task.status,
-      updateData.status
+      updateData.status,
     );
-    
+
     if (!isValidTransition) {
-      throw new Error(`Không được phép chuyển từ "${task.status}" sang "${updateData.status}" theo quy trình của dự án.`);
+      throw new Error(
+        `Không được phép chuyển từ "${task.status}" sang "${updateData.status}" theo quy trình của dự án.`,
+      );
     }
   }
 
@@ -197,7 +225,11 @@ const getBacklogByProject = async (projectId, userId) => {
     throw new Error("Bạn không có quyền xem công việc trong dự án này");
   }
 
-  const tasks = await Task.find({ project: projectId, sprint: null, parentTask: null })
+  const tasks = await Task.find({
+    project: projectId,
+    sprint: null,
+    parentTask: null,
+  })
     .populate("assignee", "fullName email avatarUrl")
     .populate("creator", "fullName email avatarUrl")
     .populate("epic", "name status")
@@ -223,7 +255,9 @@ const createSubtask = async (parentTaskId, taskData, userId) => {
   // Lấy trạng thái mặc định cho subtask nếu không gửi lên
   let finalStatus = taskData.status || "Cần làm";
   if (!taskData.status) {
-    const statuses = await workflowService.getStatusesByProject(parentTask.project);
+    const statuses = await workflowService.getStatusesByProject(
+      parentTask.project,
+    );
     if (statuses.length > 0) {
       finalStatus = statuses[0].name;
     }
@@ -291,7 +325,7 @@ const getAttachments = async (taskId, userId) => {
 
   return Attachment.find({ task: taskId }).populate(
     "uploadedBy",
-    "fullName email"
+    "fullName email",
   );
 };
 

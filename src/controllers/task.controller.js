@@ -1,7 +1,17 @@
-const taskService = require('../services/task.service');
+const taskService = require("../services/task.service");
 
 const createTask = async (req, res) => {
   try {
+    console.log(
+      "[task.controller] createTask request user:",
+      req.user?._id,
+      "body:",
+      {
+        title: req.body?.title,
+        project: req.body?.project,
+        status: req.body?.status,
+      },
+    );
     const task = await taskService.createTask(req.body, req.user._id);
     return res.status(201).json(task);
   } catch (error) {
@@ -52,7 +62,10 @@ const deleteTask = async (req, res) => {
 const getBacklogTasks = async (req, res) => {
   try {
     const { projectId } = req.params;
-    const tasks = await taskService.getBacklogByProject(projectId, req.user._id);
+    const tasks = await taskService.getBacklogByProject(
+      projectId,
+      req.user._id,
+    );
     return res.status(200).json(tasks);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -63,7 +76,11 @@ const getBacklogTasks = async (req, res) => {
 const createSubtask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const subtask = await taskService.createSubtask(taskId, req.body, req.user._id);
+    const subtask = await taskService.createSubtask(
+      taskId,
+      req.body,
+      req.user._id,
+    );
     return res.status(201).json(subtask);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -87,7 +104,11 @@ const uploadAttachment = async (req, res) => {
       return res.status(400).json({ message: "Vui lòng chọn file để upload" });
     }
     const { taskId } = req.params;
-    const attachment = await taskService.uploadAttachment(taskId, req.file, req.user._id);
+    const attachment = await taskService.uploadAttachment(
+      taskId,
+      req.file,
+      req.user._id,
+    );
     return res.status(201).json(attachment);
   } catch (error) {
     return res.status(400).json({ message: error.message });
@@ -107,7 +128,11 @@ const getAttachments = async (req, res) => {
 const deleteAttachment = async (req, res) => {
   try {
     const { taskId, attachmentId } = req.params;
-    const result = await taskService.deleteAttachment(taskId, attachmentId, req.user._id);
+    const result = await taskService.deleteAttachment(
+      taskId,
+      attachmentId,
+      req.user._id,
+    );
     return res.status(200).json(result);
   } catch (error) {
     return res.status(400).json({ message: error.message });
